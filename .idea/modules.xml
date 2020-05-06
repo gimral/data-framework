@@ -2,7 +2,13 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/beam-extensions/beam-extensions.iml" filepath="$PROJECT_DIR$/beam-extensions/beam-extensions.iml" />
+      <module fileurl="file://$PROJECT_DIR$/framework-common-extensions/confluent-avro-extension/confluent-avro-extension.iml" filepath="$PROJECT_DIR$/framework-common-extensions/confluent-avro-extension/confluent-avro-extension.iml" />
+      <module fileurl="file://$PROJECT_DIR$/framework-common-extensions/framework-common-extensions.iml" filepath="$PROJECT_DIR$/framework-common-extensions/framework-common-extensions.iml" />
+      <module fileurl="file://$PROJECT_DIR$/framework-core/framework-core.iml" filepath="$PROJECT_DIR$/framework-core/framework-core.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/leap-data-framework.iml" filepath="$PROJECT_DIR$/.idea/leap-data-framework.iml" />
+      <module fileurl="file://$PROJECT_DIR$/framework-common-extensions/log4j2-extension/log4j2-extension.iml" filepath="$PROJECT_DIR$/framework-common-extensions/log4j2-extension/log4j2-extension.iml" />
+      <module fileurl="file://$PROJECT_DIR$/framework-common-extensions/oauth-extension/oauth-extension.iml" filepath="$PROJECT_DIR$/framework-common-extensions/oauth-extension/oauth-extension.iml" />
     </modules>
   </component>
 </project>

@@ -14,6 +14,7 @@
     <modules>
         <module>log4j2-extension</module>
         <module>confluent-avro-extension</module>
+        <module>oauth-extension</module>
     </modules>
 
 </project>

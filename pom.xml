@@ -4,14 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>leap</groupId>
-    <artifactId>data-framework</artifactId>
+    <groupId>leap-data</groupId>
+    <artifactId>framework</artifactId>
     <packaging>pom</packaging>
     <version>0.1.0</version>
     <modules>
-        <module>data-framework-core</module>
-        <module>data-framework-common-extensions</module>
-        <module>data-framework-beam-extensions</module>
+        <module>framework-core</module>
+        <module>framework-common-extensions</module>
+        <module>beam-extensions</module>
     </modules>
 
     <properties>
@@ -25,6 +25,8 @@
         <junit.version>4.13</junit.version>
         <mockito.version>3.2.0</mockito.version>
         <assertj.version>3.15.0</assertj.version>
+        <slf4j.version>1.7.25</slf4j.version>
+        <beam.version>2.20.0</beam.version>
         <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
     </properties>
 
