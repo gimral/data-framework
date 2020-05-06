@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "TestSchema",
+  "fields": [
+    {
+      "name": "field1",
+      "type": "string"
+    }
+  ]
+
+}
