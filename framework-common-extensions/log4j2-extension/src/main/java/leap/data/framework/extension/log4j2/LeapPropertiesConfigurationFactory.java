@@ -77,8 +77,6 @@ public class LeapPropertiesConfigurationFactory extends PropertiesConfigurationF
                 removeAppenderList.add((String)key);
             }
         });
-        removeAppenderList.forEach((key)->{
-            properties.remove(key);
-        });
+        removeAppenderList.forEach(properties::remove);
     }
 }

@@ -17,6 +17,8 @@
     <properties>
 <!--        <maven.compiler.source>1.8</maven.compiler.source>-->
 <!--        <maven.compiler.target>1.8</maven.compiler.target>-->
+        <leap.data.version>0.1.0</leap.data.version>
+        <leap.version>0.1.6</leap.version>
         <java.version>11</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <avro.version>1.8.1</avro.version>
@@ -24,9 +26,12 @@
         <httpclient.version>4.5.10</httpclient.version>
         <junit.version>4.13</junit.version>
         <mockito.version>3.2.0</mockito.version>
+        <easymock.version>4.2</easymock.version>
         <assertj.version>3.15.0</assertj.version>
         <slf4j.version>1.7.25</slf4j.version>
         <beam.version>2.20.0</beam.version>
+        <confluent.version>5.3.1</confluent.version>
+        <JUnitParams.version>1.1.1</JUnitParams.version>
         <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
     </properties>
 

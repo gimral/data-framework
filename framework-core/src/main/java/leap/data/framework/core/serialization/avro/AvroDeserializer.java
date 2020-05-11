@@ -1,4 +1,4 @@
-package leap.data.framework.core.serialization;
+package leap.data.framework.core.serialization.avro;
 
 import org.apache.avro.Schema;
 

@@ -15,6 +15,7 @@ import org.junit.Test;
 
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.*;
 
 public class LeapPropertiesJsonLayoutConfigurationTest {
@@ -24,18 +25,19 @@ public class LeapPropertiesJsonLayoutConfigurationTest {
 
     @Test
     public void testJsonLayoutEnforced() {
+        //when:
         final Configuration config = patternLayoutContext.getConfiguration();
-        assertNotNull("No configuration created", config);
-        assertEquals("Incorrect State: " + config.getState(), config.getState(), LifeCycle.State.STARTED);
+        //then:
+        assertThat(config).as("No configuration created!").isNotNull();
+        assertThat(config.getState()).as("Incorrect State!").isEqualTo(LifeCycle.State.STARTED);
 
-        config.getLoggers().forEach((loggerName,loggerConfig)->{
-            loggerConfig.getAppenders().forEach((appenderName,appender)->{
-                final Layout layout = appender.getLayout();
-                assertNotNull("No layout created for logger:" + loggerName , layout);
-                assertTrue("Incorrect Layout: " + layout.getClass().getName() + " for logger: " + loggerName,
-                        layout instanceof JsonLayout);
-            });
-        });
+        config.getLoggers().forEach((loggerName,loggerConfig)-> loggerConfig.getAppenders().forEach((appenderName, appender)->{
+            final Layout layout = appender.getLayout();
+
+            assertThat(layout).as("No layout created for logger: " + loggerName).isNotNull();
+            assertThat(layout).as("Incorrect layout for logger: " + loggerName)
+                    .isInstanceOf(JsonLayout.class);
+        }));
 
         final Logger logger = LogManager.getLogger(getClass());
         logger.error("Configuration works!!!");

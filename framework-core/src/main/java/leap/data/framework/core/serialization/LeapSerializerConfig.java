@@ -11,4 +11,11 @@ public class LeapSerializerConfig {
     public Map<?, ?> getProps(){
         return props;
     }
+
+    public <T> T getOrDefault(String key, T defaultValue){
+        if(props.containsKey(key)){
+            return (T)props.get(key);
+        }
+        return defaultValue;
+    }
 }

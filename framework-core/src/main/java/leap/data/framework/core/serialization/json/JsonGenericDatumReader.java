@@ -1,4 +1,4 @@
-package leap.data.framework.extension.confluent.json;
+package leap.data.framework.core.serialization.json;
 
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Conversion;
@@ -12,6 +12,7 @@ import org.apache.avro.util.WeakIdentityHashMap;
 import java.io.IOException;
 import java.util.Map;
 
+@SuppressWarnings({"unchecked", "FieldMayBeFinal"})
 public class JsonGenericDatumReader<D> extends GenericDatumReader<D> {
     private GenericData data;
     private Schema actual;

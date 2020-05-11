@@ -1,10 +1,9 @@
-package leap.data.framework.extension.confluent.json;
+package leap.data.framework.core.serialization.json;
 
 import com.fasterxml.jackson.core.JsonToken;
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
 import org.apache.avro.io.parsing.Symbol;
-//import org.codehaus.jackson.JsonToken;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -7,13 +7,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.junit.LoggerContextRule;
 import org.apache.logging.log4j.test.appender.ListAppender;
-import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.*;
 
 public class MandatoryFieldsTest {
@@ -23,22 +22,26 @@ public class MandatoryFieldsTest {
 
     @Test
     public void testLogContainsMandatoryFields() throws JsonProcessingException {
-
+        //given:
         loggerContext.getLoggerContext().putObject("UseListAppender","1");
         loggerContext.reconfigure();
         final ListAppender appender = loggerContext.getListAppender("DEFAULT_STDOUT");
-
         final Logger logger = LogManager.getLogger(getClass());
+
+        //when:
         logger.error("Error Log");
 
+        //then:
         final List<String> messages = appender.getMessages();
+        assertThat(messages).isNotNull();
+        assertThat(messages).as("Incorrect number of messages!").hasSize(1);
         assertNotNull(messages);
-        assertEquals("Incorrect number of messages", 1, messages.size());
+
         ObjectMapper mapper = new ObjectMapper();
         JsonNode jsonMessage = mapper.readTree(messages.get(0));
-        assertNotNull("No @timestamp field", jsonMessage.get("@timestamp"));
-        assertNotNull("No message field", jsonMessage.get("message"));
-        assertNotNull("No level field", jsonMessage.get("level"));
-        //assertNotNull("No level field", jsonMessage.get("level"));
+
+        assertThat(jsonMessage.get("@timestamp")).as("No @timestamp field").isNotNull();
+        assertThat(jsonMessage.get("message")).as("No message field").isNotNull();
+        assertThat(jsonMessage.get("level")).as("No level field").isNotNull();
     }
 }

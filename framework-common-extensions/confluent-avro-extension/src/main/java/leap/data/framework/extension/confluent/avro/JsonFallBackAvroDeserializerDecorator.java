@@ -1,6 +1,6 @@
 package leap.data.framework.extension.confluent.avro;
 
-import leap.data.framework.core.serialization.AvroDeserializer;
+import leap.data.framework.core.serialization.avro.AvroDeserializer;
 import leap.data.framework.core.serialization.LeapSerializerConfig;
 import leap.data.framework.extension.confluent.json.LeapJsonToAvroSerializer;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;

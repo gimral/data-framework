@@ -4,7 +4,7 @@ import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.serializers.AbstractKafkaAvroSerializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
 import io.confluent.kafka.serializers.NonRecordContainer;
-import leap.data.framework.core.serialization.AvroSerializer;
+import leap.data.framework.core.serialization.avro.AvroSerializer;
 import leap.data.framework.core.serialization.LeapSerializerConfig;
 import leap.data.framework.extension.confluent.schemaregistry.SchemaRegistryClientFactory;
 import org.apache.avro.Schema;
@@ -40,31 +40,7 @@ public class LeapAvroSerializer extends AbstractKafkaAvroSerializer implements A
         return super.getSubjectName(topic, isKey, value, schema);
     }
 
-
-//    public byte[] serializeWithVersion(String subject, Object object, int version) throws SerializationException{
-//        try {
-//             Cache SchemeMetaData for reuse
-//            SchemaMetadata schemaMetadata = schemaRegistry.getSchemaMetadata(subject, version);
-//            return serializeWithSchemaMetadata(object, schemaMetadata);
-//        } catch (IOException e) {
-//            throw new SerializationException("Error serializing Avro message", e);
-//        } catch (RestClientException e) {
-//            throw new SerializationException("Error retrieving Avro schemaMetaData for Subject: " + subject + " Version: " + version, e);
-//        }
-//    }
-//
-//    public byte[] serializeWithLatestVersion(String subject, Object object) throws SerializationException{
-//        try {
-//             Cache SchemeMetaData for reuse
-//            SchemaMetadata schemaMetadata = schemaRegistry.getLatestSchemaMetadata(subject);
-//            return serializeWithSchemaMetadata(object, schemaMetadata);
-//        } catch (IOException e) {
-//            throw new SerializationException("Error serializing Avro message", e);
-//        } catch (RestClientException e) {
-//            throw new SerializationException("Error retrieving Avro latest schemaMetaData for Subject: " + subject, e);
-//        }
-//    }
-
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public byte[] serializeWithSchemaMetadata(Object object, SchemaMetadata schemaMetadata) throws SerializationException {
         if (object == null) {
             return null;

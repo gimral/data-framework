@@ -15,8 +15,7 @@ import org.junit.Test;
 
 import java.util.Map;
 
-import static org.junit.Assert.*;
-import static org.junit.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class LeapPropertiesClassLevelConfigurationTest {
 
@@ -25,23 +24,39 @@ public class LeapPropertiesClassLevelConfigurationTest {
 
     @Test
     public void testclassLogLevelConfiguration() {
+        //when:
         final Configuration config = classLogLevelContext.getConfiguration();
-        assertNotNull("No configuration created", config);
-        assertEquals("Incorrect State: " + config.getState(), config.getState(), LifeCycle.State.STARTED);
+        //then:
+        assertThat(config).as("No configuration created!").isNotNull();
+        assertThat(config.getState()).as("Incorrect State!").isEqualTo(LifeCycle.State.STARTED);
+
+        //when:
         final Map<String, Appender> appenders = config.getAppenders();
-        assertNotNull(appenders);
-        assertEquals("Incorrect number of Appenders", 1, appenders.size());
+        //then:
+        assertThat(appenders).as("No appenders created!").isNotNull();
+        assertThat(appenders).as("Incorrect number of Appenders!").hasSize(1);
 
+        //when:
+        @SuppressWarnings("rawtypes")
         final Layout layout = appenders.entrySet().iterator().next().getValue().getLayout();
-        assertNotNull("No layout created", layout);
-        assertTrue("Incorrect Layout: " + layout.getClass().getName(), layout instanceof JsonLayout);
+        //then:
+        assertThat(layout).as("No layout created!").isNotNull();
+        assertThat(layout).as("Incorrect layout!").isInstanceOf(JsonLayout.class);
 
+        //when:
         final Map<String, LoggerConfig> loggers = config.getLoggers();
-        assertNotNull(loggers);
+        //then:
+        assertThat(loggers).as("No loggers created!").isNotNull();
+
+        //when:
         LoggerConfig rootLogger = config.getRootLogger();
-        assertEquals("Incorrect Log Level For Root Logger", Level.INFO, rootLogger.getLevel());
+        //then:
+        assertThat(rootLogger.getLevel()).as("Incorrect Log Level For Root Logger!").isEqualTo(Level.INFO);
+
+        //when:
         final Logger logger = LogManager.getLogger(getClass());
-        assertEquals("Incorrect Log Level For Class Logger", Level.DEBUG, logger.getLevel());
+        //then:
+        assertThat(logger.getLevel()).as("Incorrect Log Level For Class Logger!").isEqualTo(Level.DEBUG);
         logger.debug("Configuration works!!!");
     }
 }

@@ -1,6 +1,7 @@
 package leap.data.framework.extension.confluent.json;
 
-import leap.data.framework.core.serialization.AvroDeserializer;
+import leap.data.framework.core.serialization.avro.AvroDeserializer;
+import leap.data.framework.core.serialization.json.JsonGenericDatumWriter;
 import leap.data.framework.extension.confluent.avro.LeapAvroDeserializer;
 import leap.data.framework.core.serialization.LeapSerializerConfig;
 import org.apache.avro.Schema;

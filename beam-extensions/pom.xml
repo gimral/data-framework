@@ -13,6 +13,16 @@
 
     <dependencies>
         <dependency>
+            <groupId>leap-data</groupId>
+            <artifactId>framework-core</artifactId>
+            <version>${leap.data.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>leap-data</groupId>
+            <artifactId>confluent-avro-extension</artifactId>
+            <version>${leap.data.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.beam</groupId>
             <artifactId>beam-sdks-java-core</artifactId>
             <version>${beam.version}</version>

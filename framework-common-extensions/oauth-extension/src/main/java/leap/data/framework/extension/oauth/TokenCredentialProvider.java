@@ -17,8 +17,6 @@ import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -36,11 +34,11 @@ public class TokenCredentialProvider {
 
     private Token token;
 
-    public TokenCredentialProvider(AuthenticationData authenticationData) throws URISyntaxException {
+    public TokenCredentialProvider(AuthenticationData authenticationData) {
         this(authenticationData, new HttpClientFactory());
     }
 
-    public TokenCredentialProvider(AuthenticationData authenticationData, HttpClientFactory httpClientFactory) throws URISyntaxException {
+    public TokenCredentialProvider(AuthenticationData authenticationData, HttpClientFactory httpClientFactory) {
         this.authenticationData = authenticationData;
         this.httpClientFactory = httpClientFactory;
         this.objectMapper = new ObjectMapper();

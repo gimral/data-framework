@@ -2,7 +2,7 @@ package leap.data.framework.extension.confluent.avro;
 
 import io.confluent.kafka.serializers.AbstractKafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
-import leap.data.framework.core.serialization.AvroDeserializer;
+import leap.data.framework.core.serialization.avro.AvroDeserializer;
 import leap.data.framework.core.serialization.LeapSerializerConfig;
 import leap.data.framework.extension.confluent.schemaregistry.SchemaRegistryClientFactory;
 import org.apache.avro.Schema;

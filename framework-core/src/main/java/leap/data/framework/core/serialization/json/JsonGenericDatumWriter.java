@@ -1,4 +1,4 @@
-package leap.data.framework.extension.confluent.json;
+package leap.data.framework.core.serialization.json;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericContainer;
@@ -26,7 +26,7 @@ public class JsonGenericDatumWriter {
     /** Renders a Java datum as <a href="http://www.json.org/">JSON</a>. */
     public String write(Object datum) {
         StringBuilder buffer = new StringBuilder();
-        toString(datum, buffer, new IdentityHashMap<Object, Object>(128) );
+        toString(datum, buffer, new IdentityHashMap<>(128) );
         return buffer.toString();
     }
 
@@ -46,10 +46,10 @@ public class JsonGenericDatumWriter {
             Schema schema = getRecordSchema(datum);
             for (Schema.Field f : schema.getFields()) {
                 toString(f.name(), buffer, seenObjects);
-                buffer.append(": ");
-                toString(getField(datum, f.name(), f.pos()), buffer, seenObjects);
+                buffer.append(":");
+                toString(getField(datum, f.pos()), buffer, seenObjects);
                 if (++count < schema.getFields().size())
-                    buffer.append(", ");
+                    buffer.append(",");
             }
             buffer.append("}");
             seenObjects.remove(datum);
@@ -66,7 +66,7 @@ public class JsonGenericDatumWriter {
             for (Object element : array) {
                 toString(element, buffer, seenObjects);
                 if (i++ < last)
-                    buffer.append(", ");
+                    buffer.append(",");
             }
             buffer.append("]");
             seenObjects.remove(datum);
@@ -76,35 +76,20 @@ public class JsonGenericDatumWriter {
                 return;
             }
             seenObjects.put(datum, datum);
-            buffer.append("{");
-            int count = 0;
-            @SuppressWarnings(value="unchecked")
-            Map<Object,Object> map = (Map<Object,Object>)datum;
-            for (Map.Entry<Object,Object> entry : map.entrySet()) {
-                toString(entry.getKey(), buffer, seenObjects);
-                buffer.append(": ");
-                toString(entry.getValue(), buffer, seenObjects);
-                if (++count < map.size())
-                    buffer.append(", ");
-            }
-            buffer.append("}");
+            writeMap((Map)datum, buffer, seenObjects);
             seenObjects.remove(datum);
-        } else if (isString(datum)|| isEnum(datum)) {
-            buffer.append("\"");
-            writeEscapedString(datum.toString(), buffer);
-            buffer.append("\"");
+        } else if (isString(datum)) {
+            writeString(datum.toString(), buffer);
+        } else if (isEnum(datum)) {
+            writeEnum((GenericEnumSymbol)datum, buffer);
         } else if (isBytes(datum)) {
-            buffer.append("{\"bytes\": \"");
-            ByteBuffer bytes = ((ByteBuffer) datum).duplicate();
-            writeEscapedString(StandardCharsets.ISO_8859_1.decode(bytes), buffer);
-            buffer.append("\"}");
+            writeBytes((ByteBuffer)datum, buffer);
         } else if (((datum instanceof Float) &&       // quote Nan & Infinity
-                (((Float)datum).isInfinite() || ((Float)datum).isNaN()))
-                || ((datum instanceof Double) &&
+                (((Float)datum).isInfinite() || ((Float)datum).isNaN()))) {
+            writeFloat((Float) datum, buffer);
+        } else if (((datum instanceof Double) &&
                 (((Double)datum).isInfinite() || ((Double)datum).isNaN()))) {
-            if (quoteAllValues) buffer.append("\"");
-            buffer.append(datum);
-            if (quoteAllValues) buffer.append("\"");
+            writeDouble((Double) datum, buffer);
         } else if (datum instanceof GenericData) {
             if (seenObjects.containsKey(datum)) {
                 buffer.append(TOSTRING_CIRCULAR_REFERENCE_ERROR_TEXT);
@@ -114,9 +99,7 @@ public class JsonGenericDatumWriter {
             toString(datum, buffer, seenObjects);
             seenObjects.remove(datum);
         } else if (datum instanceof LocalDate){
-            buffer.append("\"");
-            buffer.append(datum);
-            buffer.append("\"");
+            writeLocalDate((LocalDate) datum, buffer);
         }
         else {
             if (quoteAllValues) buffer.append("\"");
@@ -125,8 +108,60 @@ public class JsonGenericDatumWriter {
         }
     }
 
+    protected void writeEnum(GenericEnumSymbol datum, StringBuilder buffer){
+        buffer.append("\"");
+        writeEscapedString(datum.toString(), buffer);
+        buffer.append("\"");
+    }
+
+    protected void writeString(String datum, StringBuilder buffer){
+        buffer.append("\"");
+        writeEscapedString(datum.toString(), buffer);
+        buffer.append("\"");
+    }
+
+    protected void writeBytes(ByteBuffer datum, StringBuilder buffer){
+        buffer.append("{\"bytes\":\"");
+        ByteBuffer bytes = datum.duplicate();
+        writeEscapedString(StandardCharsets.ISO_8859_1.decode(bytes), buffer);
+        buffer.append("\"}");
+    }
+
+    protected void writeFloat(Float datum, StringBuilder buffer){
+        if (quoteAllValues) buffer.append("\"");
+        buffer.append(datum);
+        if (quoteAllValues) buffer.append("\"");
+    }
+
+    protected void writeDouble(Double datum, StringBuilder buffer){
+        if (quoteAllValues) buffer.append("\"");
+        buffer.append(datum);
+        if (quoteAllValues) buffer.append("\"");
+    }
+
+    protected void writeLocalDate(LocalDate datum, StringBuilder buffer){
+        buffer.append("\"");
+        buffer.append(datum);
+        buffer.append("\"");
+    }
+
+    protected void writeMap(Map datum, StringBuilder buffer, IdentityHashMap<Object, Object> seenObjects){
+        buffer.append("{");
+        int count = 0;
+        @SuppressWarnings(value="unchecked")
+        Map<Object,Object> map = (Map<Object,Object>)datum;
+        for (Map.Entry<Object,Object> entry : map.entrySet()) {
+            toString(entry.getKey(), buffer, seenObjects);
+            buffer.append(":");
+            toString(entry.getValue(), buffer, seenObjects);
+            if (++count < map.size())
+                buffer.append(",");
+        }
+        buffer.append("}");
+    }
+
     /* Adapted from http://code.google.com/p/json-simple */
-    private void writeEscapedString(CharSequence string, StringBuilder builder) {
+    protected void writeEscapedString(CharSequence string, StringBuilder builder) {
         for(int i = 0; i < string.length(); i++){
             char ch = string.charAt(i);
             switch(ch){
@@ -153,9 +188,11 @@ public class JsonGenericDatumWriter {
                     break;
                 default:
                     // Reference: http://www.unicode.org/versions/Unicode5.1.0/
+                    //noinspection ConstantConditions
                     if((ch>='\u0000' && ch<='\u001F') || (ch>='\u007F' && ch<='\u009F') || (ch>='\u2000' && ch<='\u20FF')){
                         String hex = Integer.toHexString(ch);
                         builder.append("\\u");
+                        //noinspection StringRepeatCanBeUsed
                         for(int j = 0; j < 4 - hex.length(); j++)
                             builder.append('0');
                         builder.append(hex.toUpperCase());
@@ -186,11 +223,11 @@ public class JsonGenericDatumWriter {
         return datum instanceof ByteBuffer;
     }
 
-    protected Collection getArrayAsCollection(Object datum) {
-        return (Collection)datum;
+    protected Collection<?> getArrayAsCollection(Object datum) {
+        return (Collection<?>)datum;
     }
 
-    public Object getField(Object record, String name, int position) {
+    public Object getField(Object record, int position) {
         return ((IndexedRecord)record).get(position);
     }
 

@@ -4,6 +4,7 @@ import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import leap.data.framework.core.backoff.ExponentialBackoff;
 import leap.data.framework.core.backoff.ExponentialBackoffBuilder;
+import leap.data.framework.core.serialization.LeapSerializerConfig;
 import org.apache.avro.Schema;
 
 import java.io.IOException;
@@ -11,24 +12,30 @@ import java.time.Duration;
 import java.util.Map;
 
 public class RetrySchemaRegistryClientDecorator extends DefaultSchemaRegistryClientDecorator {
+    private static final String SERIALIZER_REGISTRY_RETRY_MAXRETRIES = "serializer.registry.retry.maxRetries";
+    private static final String SERIALIZER_REGISTRY_RETRY_INITIALBACKOFF = "serializer.registry.retry.initialBackoff";
+    private static final String SERIALIZER_REGISTRY_RETRY_MAXBACKOFF = "serializer.registry.retry.maxBackoff";
+    private static final String SERIALIZER_REGISTRY_RETRY_EXPONENT = "serializer.registry.retry.exponent";
+    private static final String SERIALIZER_REGISTRY_RETRY_MAXCUMULATIVEBACKOFF = "serializer.registry.retry.maxCumulativeBackoff";
     private ExponentialBackoffBuilder exponentialBackoffBuilder;
-    public RetrySchemaRegistryClientDecorator(SchemaRegistryClient decoratedClient, Map<String, ?> config){
+    public RetrySchemaRegistryClientDecorator(SchemaRegistryClient decoratedClient, LeapSerializerConfig config){
         super(decoratedClient);
+        Map<?, ?> props = config.getProps();
         exponentialBackoffBuilder = new ExponentialBackoffBuilder();
-        if(config.containsKey("serializer.registry.retry.maxRetries"))
-            exponentialBackoffBuilder = exponentialBackoffBuilder.withMaxRetries((Integer)config.get("serializer.registry.retry.maxRetries"));
-        if(config.containsKey("serializer.registry.retry.initialBackoff"))
-            exponentialBackoffBuilder = exponentialBackoffBuilder.withInitialBackoff((Long)config.get("serializer.registry.retry.initialBackoff"));
-        if(config.containsKey("serializer.registry.retry.maxBackoff"))
-            exponentialBackoffBuilder = exponentialBackoffBuilder.withMaxBackoff((Long)config.get("serializer.registry.retry.maxBackoff"));
-        if(config.containsKey("serializer.registry.retry.exponent"))
-            exponentialBackoffBuilder = exponentialBackoffBuilder.withExponent((Integer)config.get("serializer.registry.retry.exponent"));
-        if(config.containsKey("serializer.registry.retry.maxCumulativeBackoff"))
-            exponentialBackoffBuilder = exponentialBackoffBuilder.withMaxCumulativeBackoff((Integer)config.get("serializer.registry.retry.maxCumulativeBackoff"));
+        if(props.containsKey(SERIALIZER_REGISTRY_RETRY_MAXRETRIES))
+            exponentialBackoffBuilder = exponentialBackoffBuilder.withMaxRetries((Integer)props.get(SERIALIZER_REGISTRY_RETRY_MAXRETRIES));
+        if(props.containsKey(SERIALIZER_REGISTRY_RETRY_INITIALBACKOFF))
+            exponentialBackoffBuilder = exponentialBackoffBuilder.withInitialBackoff((Long)props.get(SERIALIZER_REGISTRY_RETRY_INITIALBACKOFF));
+        if(props.containsKey(SERIALIZER_REGISTRY_RETRY_MAXBACKOFF))
+            exponentialBackoffBuilder = exponentialBackoffBuilder.withMaxBackoff((Long)props.get(SERIALIZER_REGISTRY_RETRY_MAXBACKOFF));
+        if(props.containsKey(SERIALIZER_REGISTRY_RETRY_EXPONENT))
+            exponentialBackoffBuilder = exponentialBackoffBuilder.withExponent((Integer)props.get(SERIALIZER_REGISTRY_RETRY_EXPONENT));
+        if(props.containsKey(SERIALIZER_REGISTRY_RETRY_MAXCUMULATIVEBACKOFF))
+            exponentialBackoffBuilder = exponentialBackoffBuilder.withMaxCumulativeBackoff((Integer)props.get(SERIALIZER_REGISTRY_RETRY_MAXCUMULATIVEBACKOFF));
     }
 
     @FunctionalInterface
-    public interface SchemaRegistryClientSupplier<R> {
+    private interface SchemaRegistryClientSupplier<R> {
         R get() throws IOException, RestClientException;
     }
 

@@ -1,11 +1,11 @@
-package leap.data.framework.extension.confluent.schemaregistry;
+package leap.data.framework.extension.confluent;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.joda.time.LocalDate;
 
-public class SerializerTestDataProvider {
+public class TestDataProvider {
     public static final String SCHEMA_STR_0 = avroSchemaString(0);
     public static final Schema AVRO_SCHEMA_0 = avroSchema(SCHEMA_STR_0);
     public static final String SCHEMA_STR_EVENT_ACCOUNT_CREATED = eventAccountCreatedSchemaString();
@@ -23,30 +23,30 @@ public class SerializerTestDataProvider {
     }
 
     private static String eventAccountCreatedSchemaString() {
-        return "\n" +
-                "{\n" +
-                "\"type\": \"record\",\n" +
-                "\"name\": \"AccountCreated\",\n" +
-                "\"fields\":[\n" +
-                "{\"name\":\"eventId\",\"type\":[\"null\", \"long\"]},\n" +
-                "{\"name\":\"traceId\",\"type\":[\"null\", \"long\"]},\n" +
-                "{\"name\":\"type\",\"type\":[\"null\", \"string\"]},\n" +
-                "{\"name\":\"data\",\"type\":\n" +
-                "{\n" +
-                "\"type\":\"record\",\n" +
-                "\"name\":\"DataType\",\n" +
-                "\"fields\":[\n" +
-                "{\"name\":\"acid\",\"type\":[\"null\", \"long\"]},\n" +
-                //"{\"name\":\"openingdate\",\"type\":[\"null\", \"long\"]},\n" +
-                "{\"name\":\"openingdate\",\"type\":[\"null\", {\"type\":\"int\", \"logicalType\": \"date\"}]},\n" +
-                "{\"name\":\"balance\",\"type\":[\"null\", \"double\"]}\n" +
-                "]\n" +
-                "}\n" +
+        return "" +
+                "{" +
+                "\"type\": \"record\"," +
+                "\"name\": \"AccountCreated\"," +
+                "\"fields\":[" +
+                "{\"name\":\"eventId\",\"type\":[\"null\", \"long\"]}," +
+                "{\"name\":\"traceId\",\"type\":[\"null\", \"long\"]}," +
+                "{\"name\":\"type\",\"type\":[\"null\", \"string\"]}," +
+                "{\"name\":\"data\",\"type\":" +
+                "{" +
+                "\"type\":\"record\"," +
+                "\"name\":\"DataType\"," +
+                "\"fields\":[" +
+                "{\"name\":\"acid\",\"type\":[\"null\", \"long\"]}," +
+                //"{\"name\":\"openingdate\",\"type\":[\"null\", \"long\"]}," +
+                "{\"name\":\"openingdate\",\"type\":[\"null\", {\"type\":\"int\", \"logicalType\": \"date\"}]}," +
+                "{\"name\":\"balance\",\"type\":[\"null\", \"double\"]}" +
+                "]" +
+                "}" +
                 "}]}";
     }
 
     private static String jsonDataEventAccountCreated() {
-        return "{\"eventId\": 231232131, \"traceId\": 2131231231, \"type\": \"AccountCreated\", \"data\": {\"acid\": 11, \"openingdate\": \"2020-02-15\", \"balance\": 100.0}}";
+        return "{\"eventId\":231232131,\"traceId\":2131231231,\"type\":\"AccountCreated\",\"data\":{\"acid\":11,\"openingdate\":\"2020-02-15\",\"balance\":100.0}}";
     }
 
     private static GenericRecord genericRecordDataEventAccountCreated() {
