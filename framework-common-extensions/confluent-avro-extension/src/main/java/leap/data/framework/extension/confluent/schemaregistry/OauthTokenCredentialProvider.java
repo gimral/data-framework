@@ -38,8 +38,8 @@ public class OauthTokenCredentialProvider implements BearerAuthCredentialProvide
                     CLIENT_ID,CLIENT_SECRET,OAUTH_HOST,alias()));
         }
         String clientId = (String) map.get("bearer.auth.clientId");
-        String clientSecret = (String) map.get("bearer.auth.clientId");
-        String ssoTokenUri = (String) map.get("bearer.auth.clientId");
+        String clientSecret = (String) map.get("bearer.auth.clientSecret");
+        String ssoTokenUri = (String) map.get("bearer.auth.host");
         try{
             tokenCredentialProvider = new TokenCredentialProvider(new AuthenticationData(clientId, clientSecret, ssoTokenUri));
         } catch (URISyntaxException e) {
