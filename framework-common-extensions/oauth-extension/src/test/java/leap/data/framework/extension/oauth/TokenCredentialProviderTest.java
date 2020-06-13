@@ -24,7 +24,7 @@ public class TokenCredentialProviderTest {
     private TokenCredentialProvider tokenCredentialProvider;
 
     @Before
-    public void setup() throws IOException, URISyntaxException {
+    public void setup() throws Exception {
         //given:
         HttpClientFactory httpClientFactory = createNiceMock(HttpClientFactory.class);
         CloseableHttpClient httpClient = createNiceMock(CloseableHttpClient.class);
@@ -32,7 +32,7 @@ public class TokenCredentialProviderTest {
         httpEntity = createNiceMock(HttpEntity.class);
 
         //and:
-        expect(httpClientFactory.getDefaultCloseableHttpClient()).andReturn(httpClient).anyTimes();
+        expect(httpClientFactory.getCloseableHttpClient()).andReturn(httpClient).anyTimes();
         expect(httpClient.execute(EasyMock.anyObject())).andReturn(httpResponse).anyTimes();
         expect(httpResponse.getEntity()).andReturn(httpEntity).anyTimes();
         replay(httpClientFactory, httpClient, httpResponse);

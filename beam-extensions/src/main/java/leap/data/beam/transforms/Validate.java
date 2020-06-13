@@ -1,123 +1,104 @@
 package leap.data.beam.transforms;
 
-import com.google.auto.value.AutoValue;
 import org.apache.beam.sdk.transforms.*;
-import org.apache.beam.sdk.transforms.display.DisplayData;
 import org.apache.beam.sdk.values.*;
 
-public class Validate {
+import javax.annotation.Nullable;
 
-    public static <T, PredicateT extends ProcessFunction<T, Boolean>> ValidateTransform<T> via(
+/**
+ * {@code PTransform}s for validating elements of a {@code PCollection} by satisfying a predicate.
+ *
+ *
+ * <p>See {@link WithInvalids} documentation for usage patterns of the returned {@link
+ * WithInvalids.Result}.
+ *
+ * <p>Example usage:
+ *
+ * <pre>{@code
+ * Result<PCollection<String>, String>> result = words.apply(
+ *     Validate
+ *         .by((String word) -> word.length < 50) // Length of work should be less than 50 to be valid element
+ *         .withExceptionsAsInvalid())  //if any exception occurs while validating, add element to invalids and ignore exception
+ * PCollection<Integer> output = result.output();
+ * PCollection<String> invalids = result.invalids();
+ * }</pre>
+ *
+ *
+ * @param <T> the type of the values in the input {@code PCollection}, and the type of the elements
+ *     in the output {@code PCollection}
+ */
+public class Validate<T> extends PTransform<PCollection<T>,
+        WithInvalids.Result<PCollection<T>, WithInvalids.InvalidElement<T>>> {
+
+    private ProcessFunction<T, Boolean> predicate;
+    private boolean exceptionsAsInvalid;
+
+    public Validate(@Nullable ProcessFunction<T, Boolean> predicate, boolean exceptionsAsInvalid) {
+        this.predicate = predicate;
+        this.exceptionsAsInvalid = exceptionsAsInvalid;
+    }
+
+    public static <T, PredicateT extends ProcessFunction<T, Boolean>> Validate<T> by(
             PredicateT predicate) {
-        return new AutoValue_Validate_ValidateTransform.Builder<T>()
-                .setPredicate(predicate)
-                .setPredicateDescription("Validate")
-                .setExceptionsAsInvalid(false)
-                .build();
+        return new Validate<>(predicate, false);
     }
 
-    public static <T, PredicateT extends ProcessFunction<T, Boolean>> ValidateTransform<T> via(
-            String predicateDescription, PredicateT predicate) {
-        return new AutoValue_Validate_ValidateTransform.Builder<T>()
-                .setPredicate(predicate)
-                .setPredicateDescription(predicateDescription)
-                .setExceptionsAsInvalid(false)
-                .build();
-    }
-
-    /** Binary compatibility adapter for {@link #via(ProcessFunction)}. */
-    public static <T> ValidateTransform<T> via(
+    /** Binary compatibility adapter for {@link #by(ProcessFunction)}. */
+    public static <T> Validate<T> by(
             SerializableFunction<T, Boolean> predicate) {
-        return via((ProcessFunction<T, Boolean>) predicate);
+        return by((ProcessFunction<T, Boolean>) predicate);
     }
 
-    @AutoValue
-    public abstract static class ValidateTransform<T> extends PTransform<PCollection<T>,
-            WithInvalids.Result<PCollection<T>, WithInvalids.InvalidElement<T>>> {
-        //todo:side inputs
+    public Validate<T> withExceptionsAsInvalid(){
+        return new Validate<>(predicate, true);
+    }
 
-        abstract ProcessFunction<T, Boolean> getPredicate();
-        abstract String getPredicateDescription();
-        abstract boolean getExceptionsAsInvalid();
+    @Override
+    public WithInvalids.Result<PCollection<T>, WithInvalids.InvalidElement<T>> expand(PCollection<T> input) {
+        ValidateFn validateFn = new ValidateFn(input.getTypeDescriptor());
+        PCollectionTuple result =
+                input.apply(
+                        "ValidateFn",
+                        ParDo.of(validateFn)
+                                .withOutputTags(validateFn.outputTag, TupleTagList.of(validateFn.invalidTag)));
 
-        abstract Builder<T> toBuilder();
+        return WithInvalids.Result.of(result, validateFn.outputTag, validateFn.invalidTag);
+    }
 
-        @AutoValue.Builder
-        abstract static class Builder<T> {
-            abstract Builder<T> setPredicate(ProcessFunction<T, Boolean> predicate);
-            abstract Builder<T> setPredicateDescription(String predicateDescription);
-            abstract Builder<T> setExceptionsAsInvalid(boolean exceptionsAsInvalid);
-            abstract ValidateTransform<T> build();
+    private class ValidateFn extends DoFn<T, T> {
+        final TupleTag<T> outputTag = new TupleTag<T>() {
+        };
+        final TupleTag<WithInvalids.InvalidElement<T>> invalidTag = new TupleTag<WithInvalids.InvalidElement<T>>() {
+        };
+
+        private final TypeDescriptor<T> inputType;
+
+        public ValidateFn(TypeDescriptor<T> inputType){
+            this.inputType = inputType;
         }
 
-        public <T> ValidateTransform<T> withExceptionsAsInvalid(){
-            return (ValidateTransform<T>) toBuilder().setExceptionsAsInvalid(true).build();
-        }
-
-        @Override
-        public WithInvalids.Result<PCollection<T>, WithInvalids.InvalidElement<T>> expand(PCollection<T> input) {
-            ValidateFn validateFn = new ValidateFn(input.getTypeDescriptor());
-
-
-            PCollectionTuple result =
-                    input.apply(
-                    Validate.class.getSimpleName(),
-                    ParDo.of(validateFn)
-                            .withOutputTags(validateFn.outputTag, TupleTagList.of(validateFn.invalidTag)));
-            return WithInvalids.Result.of(result, validateFn.outputTag, validateFn.invalidTag);
-        }
-
-        @Override
-        public void populateDisplayData(DisplayData.Builder builder) {
-            super.populateDisplayData(builder);
-            builder.add(DisplayData.item("predicate", getPredicateDescription()).withLabel("Validate Predicate"));
-        }
-
-
-        private class ValidateFn extends DoFn<T, T> {
-            final TupleTag<T> outputTag = new TupleTag<>() {
-            };
-            final TupleTag<WithInvalids.InvalidElement<T>> invalidTag = new TupleTag<>() {
-            };
-
-            private final TypeDescriptor<T> inputType;
-
-            public ValidateFn(TypeDescriptor<T> inputType){
-                this.inputType = inputType;
-            }
-
-            @ProcessElement
-            public void processElement(@Element T element, MultiOutputReceiver r, ProcessContext c) throws Exception {
-                //TODO: Invalid Records Metric
-                try {
-                    if (getPredicate().apply(element)) {
-                        r.get(outputTag).output(element);
-                    } else {
-                        //Handle Invalid Data
-                        WithInvalids.InvalidElement<T> invalidElement = WithInvalids.InvalidElement.of(element);
-                        r.get(invalidTag).output(invalidElement);
-                    }
-                } catch (Exception e) {
-                    //TODO:Log Exception
-                    if(getExceptionsAsInvalid()){
-                        WithInvalids.InvalidElement<T> invalidElement = WithInvalids.InvalidElement.of(element, e);
-                        r.get(invalidTag).output(invalidElement);
-                    }
-                    else
-                        throw e;
+        @ProcessElement
+        public void processElement(@Element T element, MultiOutputReceiver r, ProcessContext c) throws Exception {
+            //TODO: Invalid Records Metric
+            try {
+                if (predicate.apply(element)) {
+                    c.output(outputTag, element);
+                } else {
+                    //Handle Invalid Data
+                    WithInvalids.InvalidElement<T> invalidElement = WithInvalids.InvalidElement.of(element);
+                    c.output(invalidTag, invalidElement);
                 }
+            } catch (Exception e) {
+                //TODO:Log Exception
+                if(exceptionsAsInvalid){
+                    WithInvalids.InvalidElement<T> invalidElement = WithInvalids.InvalidElement.of(element,
+                            new WithInvalids.InvalidElementException("Validation failed for " + getName(), e));
+                    c.output(invalidTag, invalidElement);
+                }
+                else
+                    throw e;
             }
-
-//            @Override
-//            public TypeDescriptor<T> getInputTypeDescriptor() {
-//                return inputType;
-//            }
-//
-//            @Override
-//            public TypeDescriptor<T> getOutputTypeDescriptor() {
-//                return inputType;
-//            }
-
         }
+
     }
 }

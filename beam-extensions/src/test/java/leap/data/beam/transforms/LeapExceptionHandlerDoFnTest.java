@@ -21,6 +21,9 @@ public class LeapExceptionHandlerDoFnTest {
     @Test
     public void testExceptionsHandled(){
         List<Integer> numbers = Arrays.asList(0,1,2,3);
+        /**
+         *
+         */
         PCollection<String> validNumbers = p.apply(Create.of(numbers).withCoder(VarIntCoder.of()))
                 .apply(LeapParDo.of(getDoFn()))
                 .invalidsIgnored()
@@ -30,11 +33,11 @@ public class LeapExceptionHandlerDoFnTest {
     }
 
     private static LeapDoFn<Integer,String> getDoFn(){
-        return new LeapDoFn<>(){
+        return new LeapDoFn<Integer, String>(){
             @Override
-            protected void innerProcessElement(Integer element, OutputReceiver r) {
+            protected void innerProcessElement(Integer element, ProcessContext c) {
                 Integer output = 8 / element;
-                r.output(output.toString());
+                c.output(output.toString());
             }
         };
     }

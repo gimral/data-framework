@@ -12,10 +12,10 @@ import java.util.Map;
 //Will be used by configuration
 @SuppressWarnings("unused")
 public class OauthTokenCredentialProvider implements BearerAuthCredentialProvider {
-    private static final String CLIENT_ID = "bearer.auth.clientId";
-    private static final String CLIENT_SECRET = "bearer.auth.clientSecret";
-    private static final String OAUTH_HOST = "bearer.auth.host";
-    private static final String CREDENTIALS_SOURCE = "bearer.auth.credentials.source";
+    public static final String CLIENT_ID = "bearer.auth.clientId";
+    public static final String CLIENT_SECRET = "bearer.auth.clientSecret";
+    public static final String OAUTH_HOST = "bearer.auth.host";
+    public static final String CREDENTIALS_SOURCE = "bearer.auth.credentials.source";
 
     private TokenCredentialProvider tokenCredentialProvider;
 
@@ -40,8 +40,10 @@ public class OauthTokenCredentialProvider implements BearerAuthCredentialProvide
         String clientId = (String) map.get("bearer.auth.clientId");
         String clientSecret = (String) map.get("bearer.auth.clientSecret");
         String ssoTokenUri = (String) map.get("bearer.auth.host");
+        String insecureClientStr = (String) map.get(LeapSchemaRegistryClient.INSECURE_CLIENT);
+        boolean insecureClient = insecureClientStr != null && insecureClientStr.equals("true");
         try{
-            tokenCredentialProvider = new TokenCredentialProvider(new AuthenticationData(clientId, clientSecret, ssoTokenUri));
+            tokenCredentialProvider = new TokenCredentialProvider(new AuthenticationData(clientId, clientSecret, ssoTokenUri), insecureClient);
         } catch (URISyntaxException e) {
             throw new ConfigException("ssoTokenUrl is malformed");
         }

@@ -12,37 +12,76 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * A collection of utilities for writing transforms that can handle invalid elements encountered during
+ * processing of elements.
+ *
+ * <p>This handler is responsible for producing some output element that
+ * captures relevant details of the invalid record and can be encoded as part of a invalid output {@link
+ * PCollection}. Transforms can then package together their output and invalid collections in a
+ * {@link WithInvalids.Result} that avoids users needing to interact with {@code TupleTag}s and
+ * indexing into a {@link PCollectionTuple}.
+ *
+ *
+ * <p>Users can take advantage of {@link Result#invalidsTo(List)} for fluent chaining of transforms
+ * that handle invalids:
+ *
+ * <pre>{@code
+ * PCollection<Integer> input = ...
+ * List<PCollection<Map<String, String>> invalidCollections = new ArrayList<>();
+ * input.apply(Validate.via(...))
+ *      .invalidsTo(invalidCollections)
+ *      .apply(Validate.via(...))
+ *      .invalidsTo(invalidCollections);
+ * PCollection<Map<String, String>> invalids = PCollectionList.of(invalidCollections)
+ *      .apply("FlattenInvalidCollections", Flatten.pCollections());
+ * }</pre>
+ */
 @SuppressWarnings("unused")
 public class WithInvalids {
 
+    /**
+     * Exception type raised by Invalid output producers
+     */
+    public static class InvalidElementException extends Exception{
+        public InvalidElementException(String message){
+            super(message);
+        }
+        public InvalidElementException(String message, Throwable cause){
+            super(message, cause);
+        }
+        public InvalidElementException(Throwable cause){
+            super(cause);
+        }
+    }
+
+    /**
+     * The value type emitted by Invalid output producers. It wraps an invalid record exception together with the
+     * input element that was being processed at the time the invalid output was raised.
+     *
+     */
     @AutoValue
     public abstract static class InvalidElement<T> implements Serializable {
         public abstract T element();
 
-        @Nullable public abstract Exception exception();
+        @Nullable public abstract InvalidElementException exception();
 
         public static <T> WithInvalids.InvalidElement<T> of(T element) {
             return new AutoValue_WithInvalids_InvalidElement<>(element, null);
         }
 
-        public static <T> WithInvalids.InvalidElement<T> of(T element, Exception exception) {
+        public static <T> WithInvalids.InvalidElement<T> of(T element, InvalidElementException exception) {
             return new AutoValue_WithInvalids_InvalidElement<>(element, exception);
         }
     }
 
-//    public static class InvalidAsMapHandler<T>
-//            extends SimpleFunction<WithInvalids.InvalidElement<T>, KV<T, Map<String, String>>> {
-//        @Override
-//        public KV<T, Map<String, String>> apply(WithInvalids.InvalidElement<T> f) {
-//            return KV.of(
-//                    f.element(),
-//                    ImmutableMap.of(
-//                            "className", f.exception().getClass().getName(),
-//                            "message", f.exception().getMessage(),
-//                            "stackTrace", Arrays.toString(f.exception().getStackTrace())));
-//        }
-//    }
-
+    /**
+     * An intermediate output type for PTransforms that allows an output collection to live alongside
+     * a collection of invalid elements.
+     *
+     * @param <OutputT> Output type
+     * @param <InvalidElementT> Element type for the invalid element {@code PCollection}
+     */
     @AutoValue
     public abstract static class Result<OutputT extends POutput, InvalidElementT>
             implements PInput, POutput {
@@ -84,21 +123,27 @@ public class WithInvalids {
             return output();
         }
 
+        /** Returns just the output collection ignoring the invalid tuple. */
         public OutputT invalidsIgnored() {
             //TODO: Log
             return output();
         }
 
+        /**
+         *  Adds the invalid collection to a dead letter queue using the specified topic
+         *  and returns just the output collection.
+         */
         public OutputT invalidsToDeadLetter(String topic, String bootstrapServers) {
-            //TODO: DeadLetter DoFn builder
             invalids().apply(
                     DeadLetterQueue.<InvalidElementT>of(topic)
                             .withBootstrapServers(bootstrapServers));
             return output();
         }
 
+        /**
+         *  Adds the invalid collection to a configured dead letter queue and returns just the output collection.
+         */
         public OutputT invalidsToDeadLetter(DeadLetterQueue.DeadLetterFn<InvalidElementT> deadLetterFn) {
-            //TODO: DeadLetter DoFn builder
             invalids().apply(deadLetterFn);
             return output();
         }

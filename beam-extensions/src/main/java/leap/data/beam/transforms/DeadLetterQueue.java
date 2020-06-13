@@ -9,7 +9,7 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PDone;
-import org.apache.beam.vendor.guava.v20_0.com.google.common.collect.ImmutableMap;
+//import org.apache.beam.vendor.guava.v20_0.com.google.common.collect.ImmutableMap;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
@@ -17,7 +17,7 @@ import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.beam.vendor.guava.v20_0.com.google.common.base.Preconditions.checkArgument;
+//import static org.apache.beam.vendor.guava.v20_0.com.google.common.base.Preconditions.checkArgument;
 
 public class DeadLetterQueue {
 
@@ -66,7 +66,7 @@ public class DeadLetterQueue {
 
         public DeadLetterFn<T> updateProducerProperties(Map<String, Object> configUpdates) {
             Map<String, Object> config =
-                    updateKafkaProperties(getProducerConfig(), IGNORED_PRODUCER_PROPERTIES, configUpdates);
+                    updateKafkaProperties(getProducerConfig(), new HashMap<>(), configUpdates);
             return toBuilder().setProducerConfig(config).build();
         }
 
@@ -75,8 +75,8 @@ public class DeadLetterQueue {
             //TODO: Implement Dead Letter Logic
             return input.apply(ParDo.of(new DoFn<T,Object>() {
                 @ProcessElement
-                public void processElement(@Element T element, OutputReceiver r) {
-                    r.output((Object) element);
+                public void processElement(@Element T element, ProcessContext c) {
+                    c.output(element);
                 }
             })).apply(DeadLetterFn.class.getSimpleName(),
                     KafkaIO.<Void, Object>write()
@@ -88,23 +88,23 @@ public class DeadLetterQueue {
             );
         }
 
-        private static final Map<String, String> IGNORED_PRODUCER_PROPERTIES =
-                ImmutableMap.of(
-                        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "Use withKeySerializer instead",
-                        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "Use withValueSerializer instead");
+//        private static final Map<String, String> IGNORED_PRODUCER_PROPERTIES =
+//                HashMap.of(
+//                        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "Use withKeySerializer instead",
+//                        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "Use withValueSerializer instead");
 
         private static Map<String, Object> updateKafkaProperties(
                 Map<String, Object> currentConfig,
                 Map<String, String> ignoredProperties,
                 Map<String, Object> updates) {
 
-            for (String key : updates.keySet()) {
-                checkArgument(
-                        !ignoredProperties.containsKey(key),
-                        "No need to configure '%s'. %s",
-                        key,
-                        ignoredProperties.get(key));
-            }
+//            for (String key : updates.keySet()) {
+//                checkArgument(
+//                        !ignoredProperties.containsKey(key),
+//                        "No need to configure '%s'. %s",
+//                        key,
+//                        ignoredProperties.get(key));
+//            }
 
             Map<String, Object> config = new HashMap<>(currentConfig);
             config.putAll(updates);
