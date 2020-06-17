@@ -8,6 +8,16 @@ import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.sdk.values.TupleTagList;
 
+/**
+ * Decorator transform to handle exceptions encountered while processing any DoFn
+ *
+ * <p>This decorator is responsible for processing the wrapped DoFn and capturing any exceptions.
+ * Captured exceptions will be added to an invalid collection
+ *
+ * <p>See {@link WithInvalids} documentation for usage patterns of the returned {@link
+ * WithInvalids.Result}.
+ *
+ */
 public class LeapExceptionHandlerDecoratorTransform<InputT,OutputT> extends PTransform<PCollection<InputT>,
         WithInvalids.Result<PCollection<OutputT>, WithInvalids.InvalidElement<InputT>>> {
     private final LeapDoFnBase<InputT,OutputT> decoratedDoFn;
@@ -34,13 +44,15 @@ public class LeapExceptionHandlerDecoratorTransform<InputT,OutputT> extends PTra
         };
 
         @ProcessElement
-        public void processElement(@Element InputT element, DoFn.MultiOutputReceiver r) {
+        public void processElement(@Element InputT element, ProcessContext c) {
             try{
-                decoratedDoFn.processElement(element, r);
+
+                decoratedDoFn.processElement(element, c);
             }
             catch (Exception e){
-                WithInvalids.InvalidElement<InputT> invalidElement = WithInvalids.InvalidElement.of(element, e);
-                r.get(invalidTag).output(invalidElement);
+                WithInvalids.InvalidElement<InputT> invalidElement = WithInvalids.InvalidElement.of(element,
+                        new WithInvalids.InvalidElementException(e));
+                c.output(invalidTag, invalidElement);
             }
         }
 

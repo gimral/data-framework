@@ -6,7 +6,7 @@ import org.apache.http.impl.client.HttpClients;
 //To make HttpClients static methods testable
 public class HttpClientFactory {
 
-    public CloseableHttpClient getDefaultCloseableHttpClient(){
+    public CloseableHttpClient getCloseableHttpClient() throws Exception {
         return HttpClients.createDefault();
     }
 }

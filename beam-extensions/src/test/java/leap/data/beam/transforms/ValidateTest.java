@@ -25,10 +25,17 @@ public class ValidateTest {
 
     @Test
     public void testValidateFnIgnore(){
-        List<String> words = Arrays.asList(" some  input  words ", " ", " cool ", " foo", " bar");
+        List<String> words = Arrays.asList(" some  input  words ", " ", " cool ", " foo", " bar", "a");
+        /**
+         * Validate words by checking if the length of it is greater than 2
+         * Empty element and elements with less than 2 should be moved to invalid collection and ignored
+         */
         PCollection<String> validWords =  p.apply(Create.of(words).withCoder(StringUtf8Coder.of()))
-                .apply(Validate.via((word) -> word.length() > 2))
+                .apply(Validate.by((word) -> word.length() > 2))
                 .invalidsIgnored();
+        /**
+         * " " and "a" should not be in the output
+         */
         PAssert.that(validWords).containsInAnyOrder(" some  input  words ", " cool ", " foo", " bar");
         p.run().waitUntilFinish();
 
@@ -36,13 +43,21 @@ public class ValidateTest {
 
     @Test
     public void testValidateFnCollect(){
-        List<String> words = Arrays.asList(" some  input  words ", " ", " cool ", " foo", " bar");
-        List<String> invalidWords = Arrays.asList(" ");
+        List<String> words = Arrays.asList(" some  input  words ", " ", " cool ", " foo", " bar","a");
         List<PCollection<WithInvalids.InvalidElement<String>>> invalids = new ArrayList<>();
+        /**
+         * Validate words by checking if the length of it is greater than 2
+         * Empty element and elements with less than 2 should be moved to invalid collection
+         */
         PCollection<String> validWords =  p.apply(Create.of(words).withCoder(StringUtf8Coder.of()))
-                .apply(Validate.via((word) -> word.length() > 2))
+                .apply(Validate.by((word) -> word.length() > 2))
                 .invalidsTo(invalids);
         PAssert.that(validWords).containsInAnyOrder(" some  input  words ", " cool ", " foo", " bar");
+
+        /**
+         * " " and "a" should be in the invalid collection
+         */
+        List<String> invalidWords = Arrays.asList(" ","a");
         PAssert.that(invalids.get(0)).satisfies((invalidElements) -> {
             invalidElements.forEach((invalidElement)->{
                 assertThat("Element should be in list",invalidWords.contains(invalidElement.element()));
@@ -58,7 +73,7 @@ public class ValidateTest {
         List<Integer> invalidNumbers = Arrays.asList(0,3);
         List<PCollection<WithInvalids.InvalidElement<Integer>>> invalids = new ArrayList<>();
         PCollection<Integer> validNumbers =  p.apply(Create.of(numbers).withCoder(VarIntCoder.of()))
-                .apply(Validate.via((Integer number) -> (8 / number) > 3)
+                .apply(Validate.by((Integer number) -> (8 / number) > 3)
                         .withExceptionsAsInvalid()
                         )
                 .invalidsTo(invalids);
@@ -67,7 +82,7 @@ public class ValidateTest {
             invalidElements.forEach((invalidElement)->{
                 assertThat("Element should be in list",invalidNumbers.contains(invalidElement.element()));
                 if(invalidElement.element() == 0){
-                    assertThat("Should throw exception",invalidElement.exception() instanceof ArithmeticException);
+                    assertThat("Should throw exception",invalidElement.exception().getCause() instanceof ArithmeticException);
                 }
             });
             return null;

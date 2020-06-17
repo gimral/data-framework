@@ -10,9 +10,9 @@ public abstract class LeapDoFn<InputT,OutputT> extends LeapDoFnBase<InputT,Outpu
 
     @Override
     @ProcessElement
-    public void processElement(@Element InputT element, DoFn.MultiOutputReceiver r) {
-        innerProcessElement(element, r.get(getOutputTag()));
+    public void processElement(@Element InputT element, ProcessContext c) {
+        innerProcessElement(element, c);
     }
 
-    abstract protected void innerProcessElement(InputT element, OutputReceiver r);
+    abstract protected void innerProcessElement(InputT element, ProcessContext c);
 }
