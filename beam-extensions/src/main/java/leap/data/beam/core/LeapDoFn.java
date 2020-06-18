@@ -1,6 +1,4 @@
-package leap.data.beam.transforms;
-
-import org.apache.beam.sdk.transforms.DoFn;
+package leap.data.beam.core;
 
 public abstract class LeapDoFn<InputT,OutputT> extends LeapDoFnBase<InputT,OutputT> {
 

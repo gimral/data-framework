@@ -1,4 +1,4 @@
-package leap.data.beam.transforms;
+package leap.data.beam.core;
 
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.TupleTag;

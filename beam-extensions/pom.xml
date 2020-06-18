@@ -5,7 +5,7 @@
     <parent>
         <artifactId>framework</artifactId>
         <groupId>leap-data</groupId>
-        <version>0.1.0</version>
+        <version>0.1.1</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -50,6 +50,11 @@
             <groupId>com.google.auto.value</groupId>
             <artifactId>auto-value-annotations</artifactId>
             <version>${auto-value.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-runners-flink-1.8</artifactId>
+            <version>${beam.version}</version>
         </dependency>
         <!-- The DirectRunner is needed for unit tests. -->
         <dependency>

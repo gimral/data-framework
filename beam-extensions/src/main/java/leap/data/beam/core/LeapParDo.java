@@ -1,7 +1,14 @@
-package leap.data.beam.transforms;
+package leap.data.beam.core;
 
 import com.google.auto.value.AutoValue;
-import org.apache.beam.sdk.transforms.ProcessFunction;
+import leap.data.beam.logging.LeapEventDataLogDecoratorDoFn;
+import leap.data.beam.transforms.LeapExceptionHandlerDecoratorTransform;
+import org.apache.beam.sdk.transforms.PTransform;
+import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.POutput;
+
+import java.lang.annotation.Annotation;
 
 /**
  * Base ParDo to handle cross cutting concerns
@@ -36,11 +43,20 @@ public abstract class LeapParDo<InputT, OutputT>{
 //        return toBuilder().setExceptionHandlerDecorated(true).build();
 //    }
 
+    public static <InputT, OutputT> ParDo.SingleOutput<InputT, OutputT> of(
+            LeapDoFn<InputT, OutputT> fn) {
+        LeapDoFn<InputT, OutputT> finalDoFn = fn;
+        Annotation logEventDataAnnotation = fn.getClass().getAnnotation(LogEventData.class);
+        if(logEventDataAnnotation != null)
+            finalDoFn = new LeapEventDataLogDecoratorDoFn<>(finalDoFn);
+        return ParDo.of(finalDoFn);
+    }
+
     /**
      * Returns a new LeapExceptionHandlerDecoratorTransform by decorating the supplied DoFn by it
      */
     public static <InputT, OutputT> LeapExceptionHandlerDecoratorTransform<InputT, OutputT>
-    of(LeapDoFn<InputT, OutputT> fn) {
+    ofExcetionHandler(LeapDoFn<InputT, OutputT> fn) {
         return new LeapExceptionHandlerDecoratorTransform<>(fn);
     }
 }
