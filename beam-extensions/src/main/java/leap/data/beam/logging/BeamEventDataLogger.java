@@ -14,6 +14,7 @@ public class BeamEventDataLogger extends EventDataLogger {
     }
 
     private void log(Row record){
-        //
+        //TODO: Need to find a way to perform sensitive data masking over Row
+        log(record);
     }
 }

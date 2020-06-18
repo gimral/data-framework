@@ -7,7 +7,7 @@
     <groupId>leap-data</groupId>
     <artifactId>framework</artifactId>
     <packaging>pom</packaging>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <modules>
         <module>framework-core</module>
         <module>framework-common-extensions</module>
@@ -17,7 +17,7 @@
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <leap.data.version>0.1.0</leap.data.version>
+        <leap.data.version>0.1.1</leap.data.version>
         <leap.version>0.1.6</leap.version>
         <java.version>1.8</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

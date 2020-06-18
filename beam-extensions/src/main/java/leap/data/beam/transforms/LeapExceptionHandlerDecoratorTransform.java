@@ -1,6 +1,6 @@
 package leap.data.beam.transforms;
 
-import org.apache.beam.sdk.transforms.DoFn;
+import leap.data.beam.core.LeapDoFnBase;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PCollection;
@@ -46,7 +46,6 @@ public class LeapExceptionHandlerDecoratorTransform<InputT,OutputT> extends PTra
         @ProcessElement
         public void processElement(@Element InputT element, ProcessContext c) {
             try{
-
                 decoratedDoFn.processElement(element, c);
             }
             catch (Exception e){

@@ -40,7 +40,7 @@ public class EventDataLoggerTest {
         //then:
         ImmutableList<LoggingEvent> loggingEvents = logger.getLoggingEvents();
         assertThat(loggingEvents).hasSize(1)
-                .allSatisfy((loggingEvent -> assertThat(loggingEvent.getMessage()).isEqualTo("{\"eventId\":\"1\",\"traceId\":\"1\"," +
+                .allSatisfy((loggingEvent -> assertThat(loggingEvent.getMessage()).isEqualTo(" Record:{\"eventId\":\"1\",\"traceId\":\"1\"," +
                         "\"type\":\"AccountCreated\",\"data\":" +
                         "{\"acid\":\"*\",\"cid\":\"1\",\"openingdate\":\"2001-01-01\",\"balance\":1.0}}")));
     }
@@ -69,7 +69,7 @@ public class EventDataLoggerTest {
         //then:
         ImmutableList<LoggingEvent> loggingEvents = logger.getLoggingEvents();
         assertThat(loggingEvents).hasSize(1)
-                .allSatisfy((loggingEvent -> assertThat(loggingEvent.getMessage()).isEqualTo("{\"eventId\":\"1\",\"traceId\":\"1\"," +
+                .allSatisfy((loggingEvent -> assertThat(loggingEvent.getMessage()).isEqualTo(" Record:{\"eventId\":\"1\",\"traceId\":\"1\"," +
                         "\"type\":\"AccountCreated\",\"data\":" +
                         "{\"acid\":\"*\",\"cid\":\"1\",\"openingdate\":\"2001-01-01\",\"balance\":1.0}}")));
     }
@@ -93,7 +93,7 @@ public class EventDataLoggerTest {
         ImmutableList<LoggingEvent> loggingEvents = logger.getLoggingEvents();
         assertThat(loggingEvents).hasSize(primitives.size());
         for (int i = 0; i < loggingEvents.size(); i++) {
-            assertThat(loggingEvents.get(i).getMessage()).isEqualTo(primitives.values().toArray()[i]);
+            assertThat(loggingEvents.get(i).getMessage()).isEqualTo(" Record:" + primitives.values().toArray()[i]);
         }
     }
 
