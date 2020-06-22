@@ -3,7 +3,6 @@ package leap.data.beam.io;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
-import org.joda.time.LocalDate;
 
 public class AvroTestDataProvider {
     public static final String SCHEMA_STR_EVENT_ACCOUNT_CREATED = eventAccountCreatedSchemaString();
@@ -22,7 +21,8 @@ public class AvroTestDataProvider {
         return "" +
                 "{" +
                 "\"type\": \"record\"," +
-                "\"name\": \"AccountCreated\"," +
+                "\"name\": \"AccountCreatedEvent\"," +
+                "\"namespace\": \"leap.data.beam.entity\"," +
                 "\"fields\":[" +
                 "{\"name\":\"eventId\",\"type\":[\"null\", \"long\"]}," +
                 "{\"name\":\"traceId\",\"type\":[\"null\", \"long\"]}," +
@@ -30,10 +30,11 @@ public class AvroTestDataProvider {
                 "{\"name\":\"data\",\"type\":" +
                 "{" +
                 "\"type\":\"record\"," +
-                "\"name\":\"DataType\"," +
+                "\"name\":\"Account\"," +
+                "\"namespace\": \"leap.data.beam.entity\"," +
                 "\"fields\":[" +
                 "{\"name\":\"acid\",\"type\":[\"null\", \"long\"]}," +
-                "{\"name\":\"openingdate\",\"type\":[\"null\", {\"type\":\"int\", \"logicalType\": \"date\"}]}," +
+                //"{\"name\":\"openingdate\",\"type\":[\"null\", {\"type\":\"int\", \"logicalType\": \"date\"}]}," +
                 "{\"name\":\"balance\",\"type\":[\"null\", \"double\"]}" +
                 "]" +
                 "}" +
@@ -44,7 +45,8 @@ public class AvroTestDataProvider {
         return "" +
                 "{" +
                 "\"type\": \"record\"," +
-                "\"name\": \"AccountCreated\"," +
+                "\"name\": \"AccountBalanceUpdatedEvent\"," +
+                "\"namespace\": \"leap.data.beam.entity\"," +
                 "\"fields\":[" +
                 "{\"name\":\"eventId\",\"type\":[\"null\", \"long\"]}," +
                 "{\"name\":\"traceId\",\"type\":[\"null\", \"long\"]}," +
@@ -52,7 +54,8 @@ public class AvroTestDataProvider {
                 "{\"name\":\"data\",\"type\":" +
                 "{" +
                 "\"type\":\"record\"," +
-                "\"name\":\"DataType\"," +
+                "\"name\":\"AccountBalance\"," +
+                "\"namespace\": \"leap.data.beam.entity\"," +
                 "\"fields\":[" +
                 "{\"name\":\"acid\",\"type\":[\"null\", \"long\"]}," +
                 "{\"name\":\"previous_balance\",\"type\":[\"null\", \"double\"]}," +
@@ -66,7 +69,7 @@ public class AvroTestDataProvider {
         return "" +
                 "{" +
                 "\"type\": \"record\"," +
-                "\"name\": \"AccountEvent\"," +
+                "\"name\": \"AccountCreatedEvent\"," +
                 "\"fields\":[" +
                 "{\"name\":\"eventId\",\"type\":[\"null\", \"long\"]}," +
                 "{\"name\":\"data\",\"type\":" +
@@ -87,7 +90,7 @@ public class AvroTestDataProvider {
                 .set("type", "AccountCreated")
                 .set("data",new GenericRecordBuilder(AVRO_SCHEMA_EVENT_ACCOUNT_CREATED.getField("data").schema())
                         .set("acid",11L)
-                        .set("openingdate",new LocalDate(2020,2,15))
+                        //.set("openingdate",new LocalDate(2020,2,15))
                         .set("balance",100D)
                         .build())
                 .build();

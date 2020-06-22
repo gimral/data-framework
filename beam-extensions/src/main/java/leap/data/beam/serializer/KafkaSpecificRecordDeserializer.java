@@ -2,10 +2,13 @@ package leap.data.beam.serializer;
 
 import leap.data.framework.extension.confluent.kafka.LeapKafkaAvroDeserializer;
 import org.apache.kafka.common.serialization.Deserializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
-public abstract class KafkaSpecificRecordDeserializer<V> implements Deserializer<V> {
+public class KafkaSpecificRecordDeserializer<V> implements Deserializer<V> {
+    private static final Logger logger = LoggerFactory.getLogger(KafkaSpecificRecordDeserializer.class);
     private final LeapKafkaAvroDeserializer kafkaAvroDeserializer;
 
     public KafkaSpecificRecordDeserializer() {

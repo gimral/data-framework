@@ -25,9 +25,8 @@ public class KafkaGenericRecordDeserializer implements Deserializer<GenericRecor
         kafkaAvroDeserializer.configure(configs, isKey);
         if(configs.containsKey("schema.reader")) {
             readerSchema = new Schema.Parser().parse((String) configs.get("schema.reader"));
-            logger.error("Reader Schema will be used. Schema: " + readerSchema.toString());
+            logger.debug("Reader Schema will be used. Schema: " + readerSchema.toString());
         }
-        logger.error("Reader Schema is not defined");
     }
 
     @Override

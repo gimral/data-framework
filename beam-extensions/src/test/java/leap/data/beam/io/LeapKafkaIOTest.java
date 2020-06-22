@@ -1,6 +1,7 @@
 package leap.data.beam.io;
 
 import leap.data.beam.configuration.KafkaPipelineOptions;
+import leap.data.beam.entity.AccountCreatedEvent;
 import leap.data.framework.core.serialization.LeapSerializerConfig;
 import leap.data.framework.core.serialization.avro.AvroDeserializer;
 import leap.data.framework.extension.confluent.avro.LeapAvroDeserializer;
@@ -27,6 +28,8 @@ import org.joda.time.Instant;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.AbstractMap.SimpleEntry;
@@ -318,6 +321,35 @@ public class LeapKafkaIOTest {
             @ProcessElement
             public void processElement(@Element KafkaRecord<Long, GenericRecord> element, ProcessContext c) {
                 c.output((Long)element.getKV().getValue().get("eventId"));
+            }
+        };
+    }
+
+    @Test
+    public void testKafkaIOReadSpecific(){
+        List<String> topics = ImmutableList.of("specific-topic");
+        Integer numElements = 100;
+        byte[][] values = new byte[1][];
+        values[0] = serializedGenericAccountCreatedRecord;
+        PCollection<Long> eventIds = p.apply(LeapKafkaIO.<AccountCreatedEvent>readSpecific()
+                .withTopic("specific-topic")
+                .withValueCoderClass(AccountCreatedEvent.class)
+                .withConsumerFactoryFn(new ConsumerFactoryFn(
+                        topics, 10, numElements, OffsetResetStrategy.EARLIEST,values))
+                .withMaxNumRecords(numElements.longValue())
+        ).apply(ParDo.of(extractSpecificEventIdDoFn()));
+        //All of the elements has 0 as eventId
+        //Only one unique record exist, min and max is 0
+        addCountingAsserts(eventIds, numElements, 1L,0L,0L);
+        p.run();
+    }
+    private static final Logger logger = LoggerFactory.getLogger(LeapKafkaIOTest.class);
+    private static DoFn<KafkaRecord<Long, AccountCreatedEvent>, Long> extractSpecificEventIdDoFn() {
+        return new DoFn<KafkaRecord<Long, AccountCreatedEvent>, Long>() {
+            @ProcessElement
+            public void processElement(@Element KafkaRecord<Long, AccountCreatedEvent> element, ProcessContext c) {
+                //logger.error(element.getKV().getValue().toString());
+                c.output(element.getKV().getValue().getEventId());
             }
         };
     }

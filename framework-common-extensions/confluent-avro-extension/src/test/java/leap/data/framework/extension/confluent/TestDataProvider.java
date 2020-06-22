@@ -3,7 +3,6 @@ package leap.data.framework.extension.confluent;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
-import org.joda.time.LocalDate;
 
 public class TestDataProvider {
     public static final String SCHEMA_STR_0 = avroSchemaString(0);
@@ -38,7 +37,7 @@ public class TestDataProvider {
                 "\"fields\":[" +
                 "{\"name\":\"acid\",\"type\":[\"null\", \"long\"]}," +
                 //"{\"name\":\"openingdate\",\"type\":[\"null\", \"long\"]}," +
-                "{\"name\":\"openingdate\",\"type\":[\"null\", {\"type\":\"int\", \"logicalType\": \"date\"}]}," +
+                //"{\"name\":\"openingdate\",\"type\":[\"null\", {\"type\":\"int\", \"logicalType\": \"date\"}]}," +
                 "{\"name\":\"balance\",\"type\":[\"null\", \"double\"]}" +
                 "]" +
                 "}" +
@@ -46,7 +45,7 @@ public class TestDataProvider {
     }
 
     private static String jsonDataEventAccountCreated() {
-        return "{\"eventId\":231232131,\"traceId\":2131231231,\"type\":\"AccountCreated\",\"data\":{\"acid\":11,\"openingdate\":\"2020-02-15\",\"balance\":100.0}}";
+        return "{\"eventId\":231232131,\"traceId\":2131231231,\"type\":\"AccountCreated\",\"data\":{\"acid\":11,\"balance\":100.0}}";
     }
 
     private static GenericRecord genericRecordDataEventAccountCreated() {
@@ -56,7 +55,7 @@ public class TestDataProvider {
                 .set("type", "AccountCreated")
                 .set("data",new GenericRecordBuilder(AVRO_SCHEMA_EVENT_ACCOUNT_CREATED.getField("data").schema())
                         .set("acid",11L)
-                        .set("openingdate",new LocalDate(2020,2,15))
+                        //.set("openingdate",new LocalDate(2020,2,15))
                         .set("balance",100D)
                         .build())
                 .build();
