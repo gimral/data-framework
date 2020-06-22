@@ -267,9 +267,17 @@ public class JsonResolvingDecoder extends JsonValidatingDecoder {
     @Override
     public int readIndex() throws IOException {
         parser.advance(Symbol.UNION);
-        Symbol.UnionAdjustAction top = (Symbol.UnionAdjustAction) parser.popSymbol();
-        parser.pushSymbol(top.symToParse);
-        return top.rindex;
+        Symbol top = parser.popSymbol();
+        final int result;
+        if (top instanceof Symbol.UnionAdjustAction) {
+            result = ((Symbol.UnionAdjustAction) top).rindex;
+            top = ((Symbol.UnionAdjustAction) top).symToParse;
+        } else {
+            result = in.readIndex();
+            top = ((Symbol.Alternative) top).getSymbol(result);
+        }
+        parser.pushSymbol(top);
+        return result;
     }
 
     @Override

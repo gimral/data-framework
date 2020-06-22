@@ -8,6 +8,7 @@ import leap.data.beam.serializer.LeapAvroGenericCoder;
 import leap.data.framework.extension.confluent.kafka.LeapKafkaAvroDeserializer;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.specific.SpecificRecordBase;
 import org.apache.beam.sdk.coders.AvroCoder;
 import org.apache.beam.sdk.io.kafka.KafkaIO;
 import org.apache.beam.sdk.io.kafka.KafkaRecord;
@@ -36,7 +37,7 @@ public class LeapKafkaIO {
                 .build();
     }
 
-    public static <V> LeapSpecificRecordRead<V> readSpecific(){
+    public static <V extends SpecificRecordBase> LeapSpecificRecordRead<V> readSpecific(){
         return new AutoValue_LeapKafkaIO_LeapSpecificRecordRead.Builder<V>()
                 .setTopics(new ArrayList<>())
                 .build();
@@ -154,10 +155,15 @@ public class LeapKafkaIO {
 
     @SuppressWarnings("unchecked")
     @AutoValue
-    public abstract static class LeapSpecificRecordRead<V> extends PTransform<PBegin,PCollection<KafkaRecord<Long, V>>> {
+    public abstract static class LeapSpecificRecordRead<V extends SpecificRecordBase> extends PTransform<PBegin,PCollection<KafkaRecord<Long, V>>> {
         abstract List<String> getTopics();
-        abstract String getReaderSchema();
+        @Nullable
         abstract Class<V> getValueCoderClass();
+        @Nullable
+        abstract Long getMaxNumRecords();
+        @Nullable
+        abstract SerializableFunction<Map<String, Object>, Consumer<byte[], byte[]>> getConsumerFactoryFn();
+
         abstract LeapKafkaIO.LeapSpecificRecordRead.Builder<V> toBuilder();
 
         @Override
@@ -170,29 +176,33 @@ public class LeapKafkaIO {
 
             KafkaPipelineOptions options = (KafkaPipelineOptions) input.getPipeline().getOptions();
             Map<String,Object> kafkaProperties = getKafkaProperties(options);
-            if(getReaderSchema() != null){
-                kafkaProperties.put("schema.reader",getReaderSchema());
-            }
+            kafkaProperties.put("specific.avro.reader", "true");
 
-            //noinspection rawtypes
-            return (PCollection<KafkaRecord<Long, V>>) input.apply(
-                    "Read Kafka Stream " + getTopics().toString(),
-                    KafkaIO.<Long,V>read()
-                            .withBootstrapServers(options.getKafkaBootstrapServers())
-                            .withTopics(getTopics())
-                            .withKeyDeserializer(LongDeserializer.class)
-                            .withValueDeserializerAndCoder((Class) LeapKafkaAvroDeserializer.class,
-                                    AvroCoder.of(getValueCoderClass()))
-                            .withConsumerConfigUpdates(getKafkaProperties(options))
-            );
+            KafkaIO.Read<Long, V> reader = KafkaIO.<Long, V>read()
+                        .withBootstrapServers(options.getKafkaBootstrapServers())
+                        .withTopics(getTopics())
+                        .withKeyDeserializer(LongDeserializer.class)
+                        .withValueDeserializerAndCoder((Class) LeapKafkaAvroDeserializer.class,
+                                AvroCoder.of(getValueCoderClass()))
+                        .withConsumerConfigUpdates(kafkaProperties);
+
+            if(getMaxNumRecords() != null){
+                reader = reader.withMaxNumRecords(getMaxNumRecords());
+            }
+            if(getConsumerFactoryFn() != null){
+                reader = reader.withConsumerFactoryFn(getConsumerFactoryFn());
+            }
+            return input.apply("Read Kafka Stream " + getTopics().toString(), reader);
         }
 
 
         @AutoValue.Builder
-        abstract static class Builder<V>{
+        abstract static class Builder<V extends SpecificRecordBase>{
             abstract LeapKafkaIO.LeapSpecificRecordRead.Builder<V> setTopics(List<String> topics);
-            abstract LeapKafkaIO.LeapSpecificRecordRead.Builder<V> setReaderSchema(String readerSchema);
             abstract LeapKafkaIO.LeapSpecificRecordRead.Builder<V> setValueCoderClass(Class<V> valueCoder);
+            abstract LeapKafkaIO.LeapSpecificRecordRead.Builder<V> setMaxNumRecords(Long maxNumRecords);
+            abstract LeapKafkaIO.LeapSpecificRecordRead.Builder<V> setConsumerFactoryFn(
+                    SerializableFunction<Map<String, Object>, Consumer<byte[], byte[]>> consumerFactoryFn);
             abstract LeapKafkaIO.LeapSpecificRecordRead<V> build();
         }
 
@@ -211,20 +221,24 @@ public class LeapKafkaIO {
         }
 
         /**
-         * Sets a reader schema to be used by the deserializer.
-         * Reader schema is used to deserialize only a subset of the fields.
-         */
-        public LeapKafkaIO.LeapSpecificRecordRead<V> withReaderSchema(Schema readerSchema) {
-            return toBuilder().setReaderSchema(readerSchema.toString()).build();
-        }
-
-        /**
          * Sets coder for the SpecificRecord
          */
         public LeapKafkaIO.LeapSpecificRecordRead<V> withValueCoderClass(Class<V> valueCoder) {
             return toBuilder().setValueCoderClass(valueCoder).build();
         }
 
+        /**
+         * A factory to create Kafka {@link Consumer} from consumer configuration. This is useful for
+         * supporting another version of Kafka consumer. Default is {@link KafkaConsumer}.
+         */
+        public LeapKafkaIO.LeapSpecificRecordRead<V> withConsumerFactoryFn(
+                SerializableFunction<Map<String, Object>, Consumer<byte[], byte[]>> consumerFactoryFn) {
+            return toBuilder().setConsumerFactoryFn(consumerFactoryFn).build();
+        }
+
+        public LeapKafkaIO.LeapSpecificRecordRead<V> withMaxNumRecords(Long maxNumRecords) {
+            return toBuilder().setMaxNumRecords(maxNumRecords).build();
+        }
 
     }
 
