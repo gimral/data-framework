@@ -1,14 +1,10 @@
-package leap.data.framework.extension.confluent.avro;
+package leap.data.framework.extension.confluent.kafka;
 
-import leap.data.framework.extension.confluent.kafka.LeapKafkaAvroSerializer;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.annotation.InterfaceStability;
 import org.apache.kafka.common.serialization.Serializer;
 
 import java.util.Map;
-
-import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.confluent.kafka.serializers.KafkaAvroSerializer;
 
 /**
  * A schema-registry aware serializer for writing data in "generic Avro" format.

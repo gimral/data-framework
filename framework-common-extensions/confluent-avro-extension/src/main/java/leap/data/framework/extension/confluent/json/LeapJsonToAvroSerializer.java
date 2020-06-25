@@ -14,18 +14,21 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Decoder;
 import org.apache.kafka.common.errors.SerializationException;
+import tech.allegro.schema.json2avro.converter.JsonAvroConverter;
 
 import java.io.IOException;
 
 public class LeapJsonToAvroSerializer implements AvroSerializer<Object> {
     private final LeapAvroSerializer avroSerializer;
     private final SchemaRegistryClient schemaRegistry;
+    private final JsonAvroConverter jsonAvroConverter;
 
 
     public LeapJsonToAvroSerializer(LeapSerializerConfig config){
         avroSerializer = new LeapAvroSerializer(config);
         //TODO: Make Singleton
         schemaRegistry = new SchemaRegistryClientFactory().getSchemaRegistryClient(config);
+        jsonAvroConverter = new JsonAvroConverter();
     }
 
     @Override
@@ -57,17 +60,9 @@ public class LeapJsonToAvroSerializer implements AvroSerializer<Object> {
 
     public byte[] serializeWithSchemaMetadata(Object object, SchemaMetadata schemaMetadata) throws SerializationException {
         Schema schema = (new Schema.Parser()).parse(schemaMetadata.getSchema());
-        DatumReader<Object> reader = new JsonGenericDatumReader<>(schema);
-        //DatumReader<Object> reader = new GenericDatumReader<>(schema);
-        //TODO: Get fom factory
-        //DecoderFactory.get().jsonDecoder(schema, SerializerTestDataProvider.JSON_DATA_EVENT_ACCOUNT_CREATED);
-        try{
-            Decoder decoder = new ExtendedJsonDecoder(schema,object.toString());
-            Object datum = reader.read(null, decoder);
-            return avroSerializer.serializeWithSchemaMetadata(datum, schemaMetadata);
-        } catch (IOException e) {
-            throw new SerializationException("Error serializing Avro message", e);
-        }
+        GenericRecord record = jsonAvroConverter.convertToGenericDataRecord(object.toString().getBytes(),
+                schema);
+        return avroSerializer.serializeWithSchemaMetadata(record, schemaMetadata);
     }
 
     public GenericRecord serializeToGeneric(String subject, Object object){

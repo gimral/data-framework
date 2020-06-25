@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
+@SuppressWarnings("unused")
 public class KafkaSpecificRecordDeserializer<V> implements Deserializer<V> {
     private static final Logger logger = LoggerFactory.getLogger(KafkaSpecificRecordDeserializer.class);
     private final LeapKafkaAvroDeserializer kafkaAvroDeserializer;
