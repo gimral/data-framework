@@ -53,7 +53,7 @@ node('maven') {
                     ]]]
                 }
                 else{
-                    def jarPath = """${directory}/target/${pom.artifactId}.${version}.jar"""
+                    def jarPath = """${directory}/target/${pom.artifactId}-${version}.jar"""
                     nexusPublisher nexusInstanceId: 'Nexus', nexusRepositoryId: 'maven-releases', packages: [[$class: 'MavenPackage', 
                     mavenAssetList: [
                         [
@@ -64,7 +64,7 @@ node('maven') {
                         [
                             classifier: '', 
                             extension: 'jar', 
-                            filePath: it.path
+                            filePath: jarPath
                         ]
                     ], 
                     mavenCoordinate: [
