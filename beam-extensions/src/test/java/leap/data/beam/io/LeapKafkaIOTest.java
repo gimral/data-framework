@@ -2,10 +2,12 @@ package leap.data.beam.io;
 
 import leap.data.beam.configuration.KafkaPipelineOptions;
 import leap.data.beam.entity.AccountCreatedEvent;
+import leap.data.beam.serializer.KafkaRecordSerializer;
 import leap.data.framework.core.serialization.LeapSerializerConfig;
 import leap.data.framework.core.serialization.avro.AvroDeserializer;
 import leap.data.framework.extension.confluent.avro.LeapAvroDeserializer;
 import leap.data.framework.extension.confluent.avro.LeapAvroSerializer;
+import leap.data.framework.extension.confluent.kafka.LeapKafkaAvroSerializer;
 import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -14,15 +16,26 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.*;
+import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.ImmutableList;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.ImmutableMap;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.kafka.clients.consumer.*;
+import org.apache.kafka.clients.producer.MockProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.record.TimestampType;
+import org.apache.kafka.common.serialization.LongSerializer;
+import org.apache.kafka.common.serialization.Serializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.common.utils.Utils;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
 import org.junit.Before;
@@ -31,12 +44,16 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import static org.junit.Assert.*;
 
 @SuppressWarnings("WrapperTypeMayBePrimitive")
 public class LeapKafkaIOTest {
@@ -278,17 +295,36 @@ public class LeapKafkaIOTest {
     }
 
     @Test
-    public void testKafkaIOReadGeneric(){
+    public void testKafkaIOReadGenericDefault(){
         List<String> topics = ImmutableList.of("generic-topic");
         Integer numElements = 100;
         byte[][] values = new byte[1][];
         values[0] = serializedGenericAccountCreatedRecord;
-        PCollection<Long> eventIds = p.apply(LeapKafkaIO.readGeneric()
+        PCollection<Long> eventIds = p.apply(LeapKafkaIO.readGenericDefault()
                 .withTopic("generic-topic")
                 .withSchemaName("account-created")
                 .withConsumerFactoryFn(new ConsumerFactoryFn(
                         topics, 10, numElements, OffsetResetStrategy.EARLIEST,values))
                 .withMaxNumRecords(numElements.longValue())
+        ).apply(ParDo.of(extractEventIdDoFn()));
+        //All of the elements has 0 as eventId
+        //Only one unique record exist, min and max is 0
+        addCountingAsserts(eventIds, numElements, 1L,0L,0L);
+        p.run();
+    }
+
+    @Test
+    public void testKafkaIOReadGeneric() throws Exception {
+        List<String> topics = ImmutableList.of("generic-topic");
+        Integer numElements = 100;
+        byte[][] values = new byte[1][];
+        values[0] = serializedGenericAccountCreatedRecord;
+        PCollection<Long> eventIds = p.apply(LeapKafkaIO.<String>readGeneric(options,"account-created")
+                .withTopic("generic-topic")
+                .withConsumerFactoryFn(new ConsumerFactoryFn(
+                        topics, 10, numElements, OffsetResetStrategy.EARLIEST,values))
+                .withMaxNumRecords(numElements.longValue())
+                .withKeyDeserializer(StringDeserializer.class)
         ).apply(ParDo.of(extractEventIdDoFn()));
         //All of the elements has 0 as eventId
         //Only one unique record exist, min and max is 0
@@ -303,7 +339,7 @@ public class LeapKafkaIOTest {
         byte[][] values = new byte[2][];
         values[0] = serializedGenericAccountCreatedRecord;
         values[1] = serializedGenericAccountBalanceUpdatedRecord;
-        PCollection<Long> eventIds = p.apply(LeapKafkaIO.readGeneric()
+        PCollection<Long> eventIds = p.apply(LeapKafkaIO.readGenericDefault()
                 .withTopic("generic-topic")
                 .withConsumerFactoryFn(new ConsumerFactoryFn(
                         topics, 10, numElements, OffsetResetStrategy.EARLIEST,values
@@ -316,10 +352,10 @@ public class LeapKafkaIOTest {
         p.run();
     }
 
-    private static DoFn<KafkaRecord<Long, GenericRecord>, Long> extractEventIdDoFn() {
-        return new DoFn<KafkaRecord<Long, GenericRecord>, Long>() {
+    private static DoFn<KafkaRecord<String, GenericRecord>, Long> extractEventIdDoFn() {
+        return new DoFn<KafkaRecord<String, GenericRecord>, Long>() {
             @ProcessElement
-            public void processElement(@Element KafkaRecord<Long, GenericRecord> element, ProcessContext c) {
+            public void processElement(@Element KafkaRecord<String, GenericRecord> element, ProcessContext c) {
                 c.output((Long)element.getKV().getValue().get("eventId"));
             }
         };
@@ -352,5 +388,255 @@ public class LeapKafkaIOTest {
                 c.output(element.getKV().getValue().getEventId());
             }
         };
+    }
+
+    private PTransform<PBegin, PCollection<KV<String, GenericRecord>>> mkKafkaReadTransform(
+            Integer numElements
+    ) throws Exception {
+        List<String> topics = ImmutableList.of("generic-topic");
+        byte[][] values = new byte[1][];
+        values[0] = serializedGenericAccountCreatedRecord;
+        return LeapKafkaIO.<String>readGeneric(options, AvroTestDataProvider.AVRO_SCHEMA_EVENT_ACCOUNT_CREATED)
+                .withTopic("generic-topic")
+                .withConsumerFactoryFn(new ConsumerFactoryFn(
+                        topics, 10, numElements, OffsetResetStrategy.EARLIEST,values
+                ))
+                .withKeyDeserializer(StringDeserializer.class)
+                .withMaxNumRecords(numElements.longValue())
+                .withoutMetadata();
+    }
+
+    @Test
+    public void testSink() throws Exception {
+        // Simply read from kafka source and write to kafka sink. Then verify the records
+        // are correctly published to mock kafka producer.
+        int numElements = 1000;
+        try (MockProducerWrapper producerWrapper = new MockProducerWrapper()) {
+            ProducerSendCompletionThread completionThread =
+                    new ProducerSendCompletionThread(producerWrapper.mockProducer).start();
+            String topic = "test";
+            p.apply(mkKafkaReadTransform(numElements))
+                    .apply(
+                            LeapKafkaIO.<GenericRecord>writeDefault()
+                                    .withTopic(topic)
+                                    //.withInputTimestamp()
+                                    .withProducerFactoryFn(new ProducerFactoryFn(producerWrapper.producerKey)));
+            p.run();
+            completionThread.shutdown();
+            verifyProducerRecords(producerWrapper.mockProducer, topic, numElements, true, false);
+        }
+    }
+
+    private static void verifyProducerRecords(
+            MockProducer<String, GenericRecord> mockProducer,
+            String topic,
+            int numElements,
+            boolean keyIsAbsent,
+            boolean verifyTimestamp) {
+
+        // verify that appropriate messages are written to kafka
+        List<ProducerRecord<String, GenericRecord>> sent = mockProducer.history();
+
+        // sort by values
+        sent.sort(Comparator.comparing(ProducerRecord::key));
+
+        for (int i = 0; i < numElements; i++) {
+            ProducerRecord<String, GenericRecord> record = sent.get(i);
+            assertEquals(topic, record.topic());
+            if (keyIsAbsent) {
+                //assertNull(record.key());
+            } else {
+                assertEquals(i, record.key());
+            }
+            assertEquals(0L, record.value().get("eventId"));
+            if (verifyTimestamp) {
+                assertEquals(i, record.timestamp().intValue());
+            }
+        }
+    }
+
+    /**
+     * This wrapper over MockProducer. It also places the mock producer in global MOCK_PRODUCER_MAP.
+     * The map is needed so that the producer returned by ProducerFactoryFn during pipeline can be
+     * used in verification after the test. We also override {@code flush()} method in MockProducer so
+     * that test can control behavior of {@code send()} method (e.g. to inject errors).
+     */
+    private static class MockProducerWrapper implements AutoCloseable {
+
+        final String producerKey;
+        final MockProducer<String, GenericRecord> mockProducer;
+
+        // MockProducer has "closed" method starting version 0.11.
+        private static Method closedMethod;
+
+        static {
+            try {
+                closedMethod = MockProducer.class.getMethod("closed");
+            } catch (NoSuchMethodException e) {
+                closedMethod = null;
+            }
+        }
+
+        MockProducerWrapper() {
+            producerKey = String.valueOf(ThreadLocalRandom.current().nextLong());
+            mockProducer =
+                    new MockProducer<String, GenericRecord>(
+                            false, // disable synchronous completion of send. see ProducerSendCompletionThread
+                            // below.
+                            new StringSerializer(),
+                            new KafkaRecordSerializer<>()) {
+
+                        // override flush() so that it does not complete all the waiting sends, giving a chance
+                        // to
+                        // ProducerCompletionThread to inject errors.
+
+                        @Override
+                        public synchronized void flush() {
+                            while (completeNext()) {
+                                // there are some uncompleted records. let the completion thread handle them.
+                                try {
+                                    Thread.sleep(10);
+                                } catch (InterruptedException e) {
+                                    // ok to retry.
+                                }
+                            }
+                        }
+                    };
+
+            // Add the producer to the global map so that producer factory function can access it.
+            assertNull(MOCK_PRODUCER_MAP.putIfAbsent(producerKey, mockProducer));
+        }
+
+        @Override
+        public void close() {
+            MOCK_PRODUCER_MAP.remove(producerKey);
+            try {
+                if (closedMethod == null || !((Boolean) closedMethod.invoke(mockProducer))) {
+                    mockProducer.close();
+                }
+            } catch (Exception e) { // Not expected.
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private static final ConcurrentMap<String, MockProducer<String, GenericRecord>> MOCK_PRODUCER_MAP =
+            new ConcurrentHashMap<>();
+
+    private static class ProducerFactoryFn
+            implements SerializableFunction<Map<String, Object>, Producer<String, GenericRecord>> {
+        final String producerKey;
+
+        ProducerFactoryFn(String producerKey) {
+            this.producerKey = producerKey;
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public Producer<String, GenericRecord> apply(Map<String, Object> config) {
+
+            // Make sure the config is correctly set up for serializers.
+            Utils.newInstance(
+                    (Class<? extends Serializer<?>>)
+                            ((Class<?>) config.get(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG))
+                                    .asSubclass(Serializer.class))
+                    .configure(config, true);
+
+            Utils.newInstance(
+                    (Class<? extends Serializer<?>>)
+                            ((Class<?>) config.get(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG))
+                                    .asSubclass(Serializer.class))
+                    .configure(config, false);
+
+            // Returning same producer in each instance in a pipeline seems to work fine currently.
+            // If DirectRunner creates multiple DoFn instances for sinks, we might need to handle
+            // it appropriately. I.e. allow multiple producers for each producerKey and concatenate
+            // all the messages written to each producer for verification after the pipeline finishes.
+
+            return MOCK_PRODUCER_MAP.get(producerKey);
+        }
+    }
+
+    /**
+     * We start MockProducer with auto-completion disabled. That implies a record is not marked sent
+     * until #completeNext() is called on it. This class starts a thread to asynchronously 'complete'
+     * the the sends. During completion, we can also make those requests fail. This error injection is
+     * used in one of the tests.
+     */
+    private static class ProducerSendCompletionThread {
+
+        private final MockProducer<String, GenericRecord> mockProducer;
+        private final int maxErrors;
+        private final int errorFrequency;
+        private final AtomicBoolean done = new AtomicBoolean(false);
+        private final ExecutorService injectorThread;
+        private int numCompletions = 0;
+
+        ProducerSendCompletionThread(MockProducer<String, GenericRecord> mockProducer) {
+            // complete everything successfully
+            this(mockProducer, 0, 0);
+        }
+
+        ProducerSendCompletionThread(
+                MockProducer<String, GenericRecord> mockProducer, int maxErrors, int errorFrequency) {
+            this.mockProducer = mockProducer;
+            this.maxErrors = maxErrors;
+            this.errorFrequency = errorFrequency;
+            injectorThread = Executors.newSingleThreadExecutor();
+        }
+
+        @SuppressWarnings("FutureReturnValueIgnored")
+        ProducerSendCompletionThread start() {
+            injectorThread.submit(
+                    () -> {
+                        int errorsInjected = 0;
+
+                        while (!done.get()) {
+                            boolean successful;
+
+                            if (errorsInjected < maxErrors && ((numCompletions + 1) % errorFrequency) == 0) {
+                                successful =
+                                        mockProducer.errorNext(
+                                                new InjectedErrorException("Injected Error #" + (errorsInjected + 1)));
+
+                                if (successful) {
+                                    errorsInjected++;
+                                }
+                            } else {
+                                successful = mockProducer.completeNext();
+                            }
+
+                            if (successful) {
+                                numCompletions++;
+                            } else {
+                                // wait a bit since there are no unsent records
+                                try {
+                                    Thread.sleep(1);
+                                } catch (InterruptedException e) {
+                                    // ok to retry.
+                                }
+                            }
+                        }
+                    });
+
+            return this;
+        }
+
+        void shutdown() {
+            done.set(true);
+            injectorThread.shutdown();
+            try {
+                assertTrue(injectorThread.awaitTermination(10, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private static class InjectedErrorException extends RuntimeException {
+        InjectedErrorException(String message) {
+            super(message);
+        }
     }
 }
