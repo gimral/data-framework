@@ -1,4 +1,4 @@
-package leap.data.framework.extension.confluent.avro;
+package leap.data.framework.extension.confluent.kafka;
 
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.Deserializer;

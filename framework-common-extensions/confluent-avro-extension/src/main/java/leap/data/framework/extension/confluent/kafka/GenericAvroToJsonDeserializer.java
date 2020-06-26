@@ -1,14 +1,9 @@
-package leap.data.framework.extension.confluent.avro;
+package leap.data.framework.extension.confluent.kafka;
 
-import leap.data.framework.extension.confluent.kafka.LeapKafkaAvroDeserializer;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.kafka.common.annotation.InterfaceStability;
 import org.apache.kafka.common.serialization.Deserializer;
 
 import java.util.Map;
-
-import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 
 /**
  * A schema-registry aware deserializer for reading data in "generic Avro" format.
@@ -16,17 +11,17 @@ import io.confluent.kafka.serializers.KafkaAvroDeserializer;
  * <p>This deserializer assumes that the serialized data was written in the wire format defined at
  * http://docs.confluent.io/current/schema-registry/docs/serializer-formatter.html#wire-format.
  * It requires access to a Confluent Schema Registry endpoint, which you must
- * {@link GenericAvroDeserializer#configure(Map, boolean)} via the parameter
+ * {@link GenericAvroToJsonDeserializer#configure(Map, boolean)} via the parameter
  * "schema.registry.url".</p>
  *
  * <p>See {@link GenericAvroSerializer} for its serializer counterpart.</p>
  */
-public class GenericAvroDeserializer implements Deserializer<GenericRecord> {
+public class GenericAvroToJsonDeserializer implements Deserializer<GenericRecord> {
 
-    private final LeapKafkaAvroDeserializer inner;
+    private final LeapKafkaAvroToJsonDeserializer inner;
 
-    public GenericAvroDeserializer() {
-        inner = new LeapKafkaAvroDeserializer();
+    public GenericAvroToJsonDeserializer() {
+        inner = new LeapKafkaAvroToJsonDeserializer();
     }
 
     @Override

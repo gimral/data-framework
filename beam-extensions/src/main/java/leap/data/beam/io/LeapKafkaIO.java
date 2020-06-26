@@ -42,6 +42,7 @@ import java.util.Map;
 import static leap.data.beam.configuration.KafkaPipelineOptions.getKafkaProperties;
 import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkArgument;
 
+@SuppressWarnings("InstantiatingObjectToGetClassObject")
 public class LeapKafkaIO {
 
     public static <K> KafkaIO.Read<K, GenericRecord> readGeneric(KafkaPipelineOptions options,
@@ -106,7 +107,7 @@ public class LeapKafkaIO {
         KafkaIO.Write<K,V> writer = KafkaIO.<K,V>write()
                 .withBootstrapServers(options.getKafkaBootstrapServers())
                 .withProducerConfigUpdates(kafkaProperties)
-                .withValueSerializer((Class<? extends Serializer<V>>) new KafkaRecordSerializer<V>().getClass());
+                .withValueSerializer((Class<? extends Serializer<V>>) new KafkaRecordSerializer<>().getClass());
         return writer;
     }
 
@@ -233,6 +234,7 @@ public class LeapKafkaIO {
 
         abstract LeapKafkaIO.LeapSpecificRecordRead.Builder<V> toBuilder();
 
+        @SuppressWarnings("rawtypes")
         @Override
         public PCollection<KafkaRecord<Long, V>> expand(PBegin input) {
             checkArgument(
@@ -309,8 +311,9 @@ public class LeapKafkaIO {
 
     }
 
+    @SuppressWarnings("InstantiatingObjectToGetClassObject")
     @AutoValue
-    public abstract static class LeapRecordWrite<V extends Object> extends PTransform<PCollection<KV<String, V>>, PDone> {
+    public abstract static class LeapRecordWrite<V> extends PTransform<PCollection<KV<String, V>>, PDone> {
         abstract String getTopic();
         @Nullable
         abstract SerializableFunction<Map<String, Object>, Producer<String, V>> getProducerFactoryFn();
@@ -331,7 +334,7 @@ public class LeapKafkaIO {
                     .withTopic(getTopic())
                     .withProducerConfigUpdates(kafkaProperties)
                     .withKeySerializer(StringSerializer.class)
-                    .withValueSerializer((Class<? extends Serializer<V>>) new KafkaRecordSerializer<V>().getClass());
+                    .withValueSerializer((Class<? extends Serializer<V>>) new KafkaRecordSerializer<>().getClass());
 
             if(getProducerFactoryFn() != null){
                 writer = writer.withProducerFactoryFn(getProducerFactoryFn());
@@ -368,7 +371,6 @@ public class LeapKafkaIO {
          * Writes just the values to Kafka. This is useful for writing collections of values rather
          * than {@link KV}s.
          */
-        @SuppressWarnings({"unchecked", "rawtypes"})
         public PTransform<PCollection<V>, PDone> values() {
             return new LeapKafkaIO.KafkaValueWrite<>(this);
         }
