@@ -12,6 +12,7 @@
         <module>framework-core</module>
         <module>framework-common-extensions</module>
         <module>beam-extensions</module>
+        <module>examples/singlestream</module>
     </modules>
 
     <properties>

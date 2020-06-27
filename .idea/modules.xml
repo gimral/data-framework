@@ -7,6 +7,7 @@
       <module fileurl="file://$PROJECT_DIR$/framework.iml" filepath="$PROJECT_DIR$/framework.iml" />
       <module fileurl="file://$PROJECT_DIR$/framework-common-extensions/framework-common-extensions.iml" filepath="$PROJECT_DIR$/framework-common-extensions/framework-common-extensions.iml" />
       <module fileurl="file://$PROJECT_DIR$/framework-core/framework-core.iml" filepath="$PROJECT_DIR$/framework-core/framework-core.iml" />
+      <module fileurl="file://$PROJECT_DIR$/examples/singlestream/leap-data-examples-singlestreamaggregates.iml" filepath="$PROJECT_DIR$/examples/singlestream/leap-data-examples-singlestreamaggregates.iml" />
       <module fileurl="file://$PROJECT_DIR$/framework-common-extensions/log4j2-extension/log4j2-extension.iml" filepath="$PROJECT_DIR$/framework-common-extensions/log4j2-extension/log4j2-extension.iml" />
       <module fileurl="file://$PROJECT_DIR$/framework-common-extensions/oauth-extension/oauth-extension.iml" filepath="$PROJECT_DIR$/framework-common-extensions/oauth-extension/oauth-extension.iml" />
     </modules>
