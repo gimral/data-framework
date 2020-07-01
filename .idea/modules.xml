@@ -10,6 +10,7 @@
       <module fileurl="file://$PROJECT_DIR$/examples/singlestream/leap-data-examples-singlestreamaggregates.iml" filepath="$PROJECT_DIR$/examples/singlestream/leap-data-examples-singlestreamaggregates.iml" />
       <module fileurl="file://$PROJECT_DIR$/framework-common-extensions/log4j2-extension/log4j2-extension.iml" filepath="$PROJECT_DIR$/framework-common-extensions/log4j2-extension/log4j2-extension.iml" />
       <module fileurl="file://$PROJECT_DIR$/framework-common-extensions/oauth-extension/oauth-extension.iml" filepath="$PROJECT_DIR$/framework-common-extensions/oauth-extension/oauth-extension.iml" />
+      <module fileurl="file://$PROJECT_DIR$/examples/word-count/word-count.iml" filepath="$PROJECT_DIR$/examples/word-count/word-count.iml" />
     </modules>
   </component>
 </project>
