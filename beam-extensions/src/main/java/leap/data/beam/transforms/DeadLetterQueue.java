@@ -5,20 +5,25 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.auto.value.AutoValue;
 import leap.data.beam.configuration.KafkaPipelineOptions;
 import leap.data.beam.io.LeapKafkaIO;
+import org.apache.beam.sdk.coders.AtomicCoder;
+import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.schemas.JavaBeanSchema;
 import org.apache.beam.sdk.schemas.annotations.DefaultSchema;
 import org.apache.beam.sdk.transforms.*;
+import org.apache.beam.sdk.transforms.display.DisplayData;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PDone;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
 
+import java.io.InputStream;
+import java.io.OutputStream;
+
 import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkArgument;
 
 public class DeadLetterQueue {
 
-    @SuppressWarnings("unchecked")
     public static <K,V> DeadLetterFn<K,V> of(String topic){
         return new AutoValue_DeadLetterQueue_DeadLetterFn.Builder<K,V>()
                 .setTopic(topic)
@@ -77,6 +82,58 @@ public class DeadLetterQueue {
 
         public DeadLetterFn<K, V> withHeaderFn(SimpleFunction<KV<K,V>, DeadLetterHeader> headerFn) {
             return toBuilder().setHeaderFn(headerFn).build();
+        }
+
+        /**
+         * Writes just the values to Kafka. This is useful for writing collections of values rather
+         * than {@link KV}s.
+         */
+        public PTransform<PCollection<V>, PDone> values() {
+            return new DeadLetterQueue.DeadLetterQueueValue<>(this);
+        }
+
+    }
+
+    private static class DeadLetterQueueValue<K,V> extends PTransform<PCollection<V>, PDone> {
+        private final DeadLetterQueue.DeadLetterFn<K,V> kvWriteTransform;
+
+        private DeadLetterQueueValue(DeadLetterQueue.DeadLetterFn<K,V> kvWriteTransform) {
+            this.kvWriteTransform = kvWriteTransform;
+        }
+
+        @Override
+        public PDone expand(PCollection<V> input) {
+            return input
+                    .apply(
+                            "Kafka values with default key",
+                            MapElements.via(
+                                    new SimpleFunction<V, KV<K, V>>() {
+                                        @Override
+                                        public KV<K, V> apply(V element) {
+                                            return KV.of(null, element);
+                                        }
+                                    }))
+                    .setCoder(KvCoder.of(new DeadLetterQueue.NullOnlyCoder<>(), input.getCoder()))
+                    .apply(kvWriteTransform);
+        }
+
+        @Override
+        public void populateDisplayData(DisplayData.Builder builder) {
+            super.populateDisplayData(builder);
+            kvWriteTransform.populateDisplayData(builder);
+        }
+    }
+
+    private static class NullOnlyCoder<T> extends AtomicCoder<T> {
+        @Override
+        public void encode(T value, OutputStream outStream) {
+            checkArgument(value == null, "Can only encode nulls");
+            // Encode as no bytes.
+        }
+
+        @Override
+        public T decode(InputStream inStream) {
+            return null;
         }
     }
 
