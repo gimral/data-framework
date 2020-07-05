@@ -1,10 +1,6 @@
 package leap.data.beam.serializer;
 
-import leap.data.framework.extension.confluent.kafka.LeapKafkaAvroDeserializer;
 import leap.data.framework.extension.confluent.kafka.LeapKafkaAvroSerializer;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

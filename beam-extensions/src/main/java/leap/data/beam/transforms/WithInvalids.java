@@ -2,6 +2,7 @@ package leap.data.beam.transforms;
 
 import com.google.auto.value.AutoValue;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.*;
@@ -133,18 +134,24 @@ public class WithInvalids {
          *  Adds the invalid collection to a dead letter queue using the specified topic
          *  and returns just the output collection.
          */
-        public OutputT invalidsToDeadLetter(String topic, String bootstrapServers) {
-            invalids().apply(
-                    DeadLetterQueue.<InvalidElementT>of(topic)
-                            .withBootstrapServers(bootstrapServers));
-            return output();
-        }
+//        public OutputT invalidsToDeadLetter(String topic) {
+//            invalids().apply(
+//                    DeadLetterQueue.<Void,InvalidElementT>of(topic));
+//            return output();
+//        }
 
         /**
          *  Adds the invalid collection to a configured dead letter queue and returns just the output collection.
          */
-        public OutputT invalidsToDeadLetter(DeadLetterQueue.DeadLetterFn<InvalidElementT> deadLetterFn) {
-            invalids().apply(deadLetterFn);
+        public OutputT invalidsToDeadLetter(DeadLetterQueue.DeadLetterFn<Void,InvalidElementT> deadLetterFn) {
+            invalids()
+                    .apply(ParDo.of(new DoFn<InvalidElementT, KV<Void,InvalidElementT>>() {
+                        @ProcessElement
+                        public void processElement(@Element InvalidElementT element,  ProcessContext c) {
+                            c.output(KV.of(null,element));
+                        }
+                    }))
+                    .apply(deadLetterFn);
             return output();
         }
 

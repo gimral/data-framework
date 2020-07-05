@@ -111,6 +111,17 @@ public class LeapKafkaIO {
         return writer;
     }
 
+    public static <K,V> KafkaIO.WriteRecords<K, V> writeRecords(KafkaPipelineOptions options){
+        Map<String,Object> kafkaProperties = getKafkaProperties(options);
+
+        @SuppressWarnings("unchecked")
+        KafkaIO.WriteRecords<K,V> writer = KafkaIO.<K,V>writeRecords()
+                .withBootstrapServers(options.getKafkaBootstrapServers())
+                .withProducerConfigUpdates(kafkaProperties)
+                .withValueSerializer((Class<? extends Serializer<V>>) new KafkaRecordSerializer<>().getClass());
+        return writer;
+    }
+
     @AutoValue
     public abstract static class LeapGenericRecordRead extends PTransform<PBegin,PCollection<KafkaRecord<String, GenericRecord>>> {
         abstract List<String> getTopics();
@@ -156,7 +167,7 @@ public class LeapKafkaIO {
                 if(getConsumerFactoryFn() != null){
                     reader = reader.withConsumerFactoryFn(getConsumerFactoryFn());
                 }
-                stream = input.apply("Read Kafka Stream " + getTopics().toString(), reader);
+                stream = input.apply("Read Kafka " + getTopics().toString(), reader);
                 //TODO: Handle Exceptions
             } catch (IOException | RestClientException e) {
                 e.printStackTrace();
@@ -261,7 +272,7 @@ public class LeapKafkaIO {
             if(getConsumerFactoryFn() != null){
                 reader = reader.withConsumerFactoryFn(getConsumerFactoryFn());
             }
-            return input.apply("Read Kafka Stream " + getTopics().toString(), reader);
+            return input.apply("Read Kafka " + getTopics().toString(), reader);
         }
 
 

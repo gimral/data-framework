@@ -1,115 +1,187 @@
 package leap.data.beam.transforms;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.auto.value.AutoValue;
-import leap.data.framework.extension.confluent.kafka.LeapKafkaAvroSerializer;
-import org.apache.beam.sdk.io.kafka.KafkaIO;
-import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.PTransform;
-import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.SerializableFunction;
+import leap.data.beam.configuration.KafkaPipelineOptions;
+import leap.data.beam.io.LeapKafkaIO;
+import org.apache.beam.sdk.schemas.JavaBeanSchema;
+import org.apache.beam.sdk.schemas.annotations.DefaultSchema;
+import org.apache.beam.sdk.transforms.*;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PDone;
-//import org.apache.beam.vendor.guava.v20_0.com.google.common.collect.ImmutableMap;
-import org.apache.kafka.clients.producer.Producer;
-import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.internals.RecordHeader;
 
-import javax.annotation.Nullable;
-import java.util.HashMap;
-import java.util.Map;
-
-//import static org.apache.beam.vendor.guava.v20_0.com.google.common.base.Preconditions.checkArgument;
+import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkArgument;
 
 public class DeadLetterQueue {
 
-    public static <T> DeadLetterFn<T> of(String topic){
-        return new AutoValue_DeadLetterQueue_DeadLetterFn.Builder<T>()
+    @SuppressWarnings("unchecked")
+    public static <K,V> DeadLetterFn<K,V> of(String topic){
+        return new AutoValue_DeadLetterQueue_DeadLetterFn.Builder<K,V>()
                 .setTopic(topic)
-                //.setBootstrapServers(boot)
                 .build();
     }
 
     @AutoValue
-    public abstract static class DeadLetterFn<T> extends PTransform<PCollection<T>, PDone> {
+    public abstract static class DeadLetterFn<K,V> extends PTransform<PCollection<KV<K,V>>, PDone> {
+
+        private static final ObjectMapper objectMapper = new ObjectMapper();
 
         abstract String getTopic();
 
-        abstract String getBootstrapServers();
+        abstract SimpleFunction<KV<K,V>, DeadLetterHeader> getHeaderFn();
 
-        abstract Map<String, Object> getProducerConfig();
-
-        @Nullable
-        abstract SerializableFunction<Map<String, Object>, Producer<Void,T>> getProducerFactoryFn();
-
-        abstract Builder<T> toBuilder();
+        abstract Builder<K,V> toBuilder();
 
         @AutoValue.Builder
-        abstract static class Builder<T> {
-            abstract Builder<T> setTopic(String topic);
-
-            abstract Builder<T> setBootstrapServers(String bootstrapServers);
-
-            abstract Builder<T> setProducerConfig(Map<String, Object> producerConfig);
-
-            abstract Builder<T> setProducerFactoryFn(
-                    SerializableFunction<Map<String, Object>, Producer<Void,T>> fn);
-
-            abstract DeadLetterFn<T> build();
-        }
-
-        public DeadLetterFn<T> withBootstrapServers(String bootstrapServers) {
-            return toBuilder().setBootstrapServers(bootstrapServers).build();
-        }
-
-//        public DeadLetterFn<T> withTopic(String topic) {
-//            return toBuilder().setTopic(topic).build();
-//        }
-
-        public DeadLetterFn<T> updateProducerProperties(Map<String, Object> configUpdates) {
-            Map<String, Object> config =
-                    updateKafkaProperties(getProducerConfig(), new HashMap<>(), configUpdates);
-            return toBuilder().setProducerConfig(config).build();
+        abstract static class Builder<K,V> {
+            abstract Builder<K,V> setTopic(String topic);
+            abstract Builder<K,V> setHeaderFn(SimpleFunction<KV<K,V>, DeadLetterHeader> headerFn);
+            abstract DeadLetterFn<K,V> build();
         }
 
         @Override
-        public PDone expand(PCollection<T> input) {
-            //TODO: Implement Dead Letter Logic
-            return input.apply(ParDo.of(new DoFn<T,Object>() {
-                @ProcessElement
-                public void processElement(@Element T element, ProcessContext c) {
-                    c.output(element);
-                }
-            })).apply(DeadLetterFn.class.getSimpleName(),
-                    KafkaIO.<Void, Object>write()
-                            .withBootstrapServers(getBootstrapServers())
+        public PDone expand(PCollection<KV<K,V>> input) {
+            checkArgument(
+                    input.getPipeline().getOptions() instanceof KafkaPipelineOptions,
+                    "PipelineOptions should implement KafkaPipelineOptions");
+            checkArgument(
+                    getHeaderFn() != null,
+                    "HeaderFn should be defined.");
+
+            KafkaPipelineOptions options = (KafkaPipelineOptions) input.getPipeline().getOptions();
+
+                    //TODO:Convert this to a implemented DoFn
+            return input.apply("Convert to Process Record", ParDo.of(new DoFn<KV<K,V>, ProducerRecord<K,V>>() {
+                    @ProcessElement
+                    public void processElement(@Element KV<K,V> element,  ProcessContext c) {
+                        DeadLetterHeader header = getHeaderFn().apply(element);
+                        ProducerRecord<K,V> record = new ProducerRecord<>(getTopic(), element.getKey(), element.getValue());
+                        try {
+                            record.headers().add(new RecordHeader("dead_letter_header", objectMapper.writeValueAsBytes(header)));
+                        } catch (JsonProcessingException e) {
+                            //TODO:Log Error
+                            e.printStackTrace();
+                        }
+                        c.output(record);
+                    }
+                }))
+                    .apply("Write To Dead Letter Topic " + getTopic(),
+                    LeapKafkaIO.<K,V>writeRecords(options)
                             .withTopic(getTopic())
-                            .updateProducerProperties(getProducerConfig())
-                            .withValueSerializer(LeapKafkaAvroSerializer.class)
-                            .values()
             );
         }
 
-//        private static final Map<String, String> IGNORED_PRODUCER_PROPERTIES =
-//                HashMap.of(
-//                        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "Use withKeySerializer instead",
-//                        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "Use withValueSerializer instead");
-
-        private static Map<String, Object> updateKafkaProperties(
-                Map<String, Object> currentConfig,
-                Map<String, String> ignoredProperties,
-                Map<String, Object> updates) {
-
-//            for (String key : updates.keySet()) {
-//                checkArgument(
-//                        !ignoredProperties.containsKey(key),
-//                        "No need to configure '%s'. %s",
-//                        key,
-//                        ignoredProperties.get(key));
-//            }
-
-            Map<String, Object> config = new HashMap<>(currentConfig);
-            config.putAll(updates);
-
-            return config;
+        public DeadLetterFn<K, V> withHeaderFn(SimpleFunction<KV<K,V>, DeadLetterHeader> headerFn) {
+            return toBuilder().setHeaderFn(headerFn).build();
         }
     }
+
+    @SuppressWarnings("unused")
+    @DefaultSchema(JavaBeanSchema.class)
+    public static class DeadLetterHeader{
+        private String originSource;
+        private Integer originPartition;
+        private Long originOffset;
+        private String originId;
+        private String applicationName;
+        private String errorCategory;
+        private String errorReason;
+        private String errorDescription;
+        private Integer retryCount;
+        private String expectedSchema;
+        private String actualSchema;
+
+        public String getOriginSource() {
+            return originSource;
+        }
+
+        public void setOriginSource(String originSource) {
+            this.originSource = originSource;
+        }
+
+        public Integer getOriginPartition() {
+            return originPartition;
+        }
+
+        public void setOriginPartition(Integer originPartition) {
+            this.originPartition = originPartition;
+        }
+
+        public Long getOriginOffset() {
+            return originOffset;
+        }
+
+        public void setOriginOffset(Long originOffset) {
+            this.originOffset = originOffset;
+        }
+
+        public String getOriginId() {
+            return originId;
+        }
+
+        public void setOriginId(String originId) {
+            this.originId = originId;
+        }
+
+        public String getApplicationName() {
+            return applicationName;
+        }
+
+        public void setApplicationName(String applicationName) {
+            this.applicationName = applicationName;
+        }
+
+        public String getErrorCategory() {
+            return errorCategory;
+        }
+
+        public void setErrorCategory(String errorCategory) {
+            this.errorCategory = errorCategory;
+        }
+
+        public String getErrorReason() {
+            return errorReason;
+        }
+
+        public void setErrorReason(String errorReason) {
+            this.errorReason = errorReason;
+        }
+
+        public String getErrorDescription() {
+            return errorDescription;
+        }
+
+        public void setErrorDescription(String errorDescription) {
+            this.errorDescription = errorDescription;
+        }
+
+        public Integer getRetryCount() {
+            return retryCount;
+        }
+
+        public void setRetryCount(Integer retryCount) {
+            this.retryCount = retryCount;
+        }
+
+        public String getExpectedSchema() {
+            return expectedSchema;
+        }
+
+        public void setExpectedSchema(String expectedSchema) {
+            this.expectedSchema = expectedSchema;
+        }
+
+        public String getActualSchema() {
+            return actualSchema;
+        }
+
+        public void setActualSchema(String actualSchema) {
+            this.actualSchema = actualSchema;
+        }
+    }
+
 }
