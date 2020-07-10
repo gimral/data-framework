@@ -3,10 +3,14 @@ package leap.data.beam.examples.datatypes;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.beam.sdk.schemas.JavaBeanSchema;
+import org.apache.beam.sdk.schemas.annotations.DefaultSchema;
+import org.apache.beam.sdk.schemas.annotations.SchemaCreate;
 import org.joda.time.DateTime;
 
 import leap.data.beam.examples.util.TimeUtil;
 
+@DefaultSchema(JavaBeanSchema.class)
 public class ProspectCompany {
 
     private Long id;
@@ -16,6 +20,7 @@ public class ProspectCompany {
     private DateTime eventTime;
     private List<Prospect> shareHolders;
 
+    @SchemaCreate
     public ProspectCompany(Long id, String companyName, String tradeLicenseNumber, boolean match, DateTime eventTime) {
         shareHolders = new ArrayList<Prospect>();
         this.id = id;
