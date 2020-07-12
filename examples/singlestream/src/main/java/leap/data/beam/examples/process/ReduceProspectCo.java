@@ -7,13 +7,11 @@ import leap.data.beam.core.LeapDoFn;
 import leap.data.beam.examples.datatypes.AggregatedProspectCompany;
 import leap.data.beam.examples.datatypes.ProspectCompany;
 
-public class ReduceProspectCo extends DoFn<PCollection<Iterable<ProspectCompany>>, AggregatedProspectCompany> {
+public class ReduceProspectCo extends LeapDoFn<Iterable<ProspectCompany>, AggregatedProspectCompany> {
 
     private static final long serialVersionUID = 13232323232L;
 
-  
-
-    /*@Override
+    @Override
     protected void innerProcessElement(Iterable<ProspectCompany> element,
             DoFn<Iterable<ProspectCompany>, AggregatedProspectCompany>.ProcessContext c) {
                 AggregatedProspectCompany agpc = new AggregatedProspectCompany();
@@ -21,7 +19,7 @@ public class ReduceProspectCo extends DoFn<PCollection<Iterable<ProspectCompany>
                     agpc.addCompany(prospectCompany);
                 }
             c.output(agpc);    
-    }*/
+    }
 
     
 
