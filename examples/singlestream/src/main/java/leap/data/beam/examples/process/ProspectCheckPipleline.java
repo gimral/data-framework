@@ -7,6 +7,8 @@ import org.apache.beam.sdk.transforms.Values;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.kafka.common.serialization.LongDeserializer;
+import org.apache.kafka.common.serialization.LongSerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.joda.time.Duration;
@@ -25,6 +27,7 @@ public class ProspectCheckPipleline extends LeapBeamPipeline<KafkaPipelineOption
         PCollection<String> input = p.apply(KafkaIO.<Long,String>read()
                                      .withBootstrapServers("localhost:9092")
                                      .withTopic("AggregateProspect")
+                                     .withKeyDeserializer(LongDeserializer.class)
                                      .withValueDeserializer(StringDeserializer.class)
                                      .withoutMetadata())
                                      .apply(Values.<String>create());   
@@ -32,8 +35,8 @@ public class ProspectCheckPipleline extends LeapBeamPipeline<KafkaPipelineOption
         PCollection<ProspectCompany> agpc = input.apply("Map to prospect" ,
                                                       LeapParDo.of(new FlatMapToAggregateProspect()));
 
-        PCollection<AggregatedProspectCompany> aggregatedProspectsCo = agpc                                              
-                                                      .apply(Window.<ProspectCompany>
+        PCollection<AggregatedProspectCompany> aggregatedProspectsCo = agpc
+                                                     .apply(Window.<ProspectCompany>
                                                              into(FixedWindows.of(Duration.standardSeconds(15))))
                                                       .apply(LeapParDo.of(new ProspectId()))
                                                       .apply(GroupByKey.create())

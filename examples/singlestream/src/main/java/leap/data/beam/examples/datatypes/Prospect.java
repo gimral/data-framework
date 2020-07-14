@@ -1,6 +1,10 @@
 package leap.data.beam.examples.datatypes;
 
+import org.apache.beam.sdk.schemas.JavaBeanSchema;
+import org.apache.beam.sdk.schemas.annotations.DefaultSchema;
+
 @SuppressWarnings("unused")
+@DefaultSchema(JavaBeanSchema.class)
 public class Prospect implements Comparable<Prospect>{
 
     private static final long serialVersionUID = 1L;
