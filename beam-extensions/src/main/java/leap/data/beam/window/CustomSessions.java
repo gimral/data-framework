@@ -49,7 +49,7 @@ public class CustomSessions extends WindowFn<Object, IntervalWindow> {
         List<MergeCandidate> merges = new ArrayList<>();
         MergeCandidate current = new MergeCandidate();
         for (IntervalWindow window : sortedWindows) {
-            if (window.start().plus(Duration.standardSeconds(120)).isBefore(window.end()) &
+            if (window.start().plus(maxDuration).isBefore(window.end()) &
                     current.intersects(window)) {
                 current.add(window);
             } else {
