@@ -9,7 +9,7 @@ import org.joda.time.Duration;
 import javax.annotation.Nullable;
 import java.util.*;
 
-public class CustomSessions extends WindowFn<Object, IntervalWindow> {
+public class LeapSessions extends WindowFn<Object, IntervalWindow> {
     /**
      * Duration of the gaps between sessions.
      */
@@ -19,14 +19,14 @@ public class CustomSessions extends WindowFn<Object, IntervalWindow> {
     /**
      * Creates a {@code Sessions} {@link WindowFn} with the specified gap duration.
      */
-    public static CustomSessions withGapAndMaxDuration(Duration gapDuration, Duration maxDuration) {
-        return new CustomSessions(gapDuration, maxDuration);
+    public static LeapSessions withGapAndMaxDuration(Duration gapDuration, Duration maxDuration) {
+        return new LeapSessions(gapDuration, maxDuration);
     }
 
     /**
      * Creates a {@code Sessions} {@link WindowFn} with the specified gap duration.
      */
-    private CustomSessions(Duration gapDuration, Duration maxDuration) {
+    private LeapSessions(Duration gapDuration, Duration maxDuration) {
         this.gapDuration = gapDuration;
         this.maxDuration = maxDuration;
     }
@@ -49,9 +49,8 @@ public class CustomSessions extends WindowFn<Object, IntervalWindow> {
         List<MergeCandidate> merges = new ArrayList<>();
         MergeCandidate current = new MergeCandidate();
         for (IntervalWindow window : sortedWindows) {
-            if (window.start().plus(maxDuration).isBefore(window.end()) &&
-                    current.intersects(window)) {
-                current.add(window);
+            if (current.intersects(window)) {
+                current.add(window, maxDuration);
             } else {
                 merges.add(current);
                 current = new MergeCandidate(window);
@@ -70,7 +69,7 @@ public class CustomSessions extends WindowFn<Object, IntervalWindow> {
 
     @Override
     public boolean isCompatible(WindowFn<?, ?> other) {
-        return other instanceof org.apache.beam.sdk.transforms.windowing.Sessions;
+        return other instanceof LeapSessions;
     }
 
     @Override
@@ -80,7 +79,7 @@ public class CustomSessions extends WindowFn<Object, IntervalWindow> {
                     other,
                     String.format(
                             "%s is only compatible with %s.",
-                            org.apache.beam.sdk.transforms.windowing.Sessions.class.getSimpleName(), org.apache.beam.sdk.transforms.windowing.Sessions.class.getSimpleName()));
+                            LeapSessions.class.getSimpleName(), LeapSessions.class.getSimpleName()));
         }
     }
 
@@ -98,6 +97,10 @@ public class CustomSessions extends WindowFn<Object, IntervalWindow> {
         return gapDuration;
     }
 
+    public Duration getMaxuration() {
+        return maxDuration;
+    }
+
     @Override
     public void populateDisplayData(DisplayData.Builder builder) {
         super.populateDisplayData(builder);
@@ -106,16 +109,17 @@ public class CustomSessions extends WindowFn<Object, IntervalWindow> {
 
     @Override
     public boolean equals(Object object) {
-        if (!(object instanceof org.apache.beam.sdk.transforms.windowing.Sessions)) {
+        if (!(object instanceof LeapSessions)) {
             return false;
         }
-        org.apache.beam.sdk.transforms.windowing.Sessions other = (org.apache.beam.sdk.transforms.windowing.Sessions) object;
-        return getGapDuration().equals(other.getGapDuration());
+        LeapSessions other = (LeapSessions) object;
+        return getGapDuration().equals(other.getGapDuration()) &&
+                getMaxuration().equals(other.getMaxuration());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(gapDuration);
+        return Objects.hash(gapDuration, maxDuration);
     }
 
     private static class MergeCandidate {
@@ -137,8 +141,11 @@ public class CustomSessions extends WindowFn<Object, IntervalWindow> {
             return union == null || union.intersects(window);
         }
 
-        public void add(IntervalWindow window) {
+        public void add(IntervalWindow window, Duration maxDuration) {
             union = union == null ? window : union.span(window);
+            if(window.start().plus(maxDuration).isBefore(window.end())){
+                union = new IntervalWindow(union.start(),maxDuration);
+            }
             parts.add(window);
         }
 
