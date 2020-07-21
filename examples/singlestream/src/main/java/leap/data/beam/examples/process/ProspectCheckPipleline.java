@@ -8,7 +8,6 @@ import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.kafka.common.serialization.LongDeserializer;
-import org.apache.kafka.common.serialization.LongSerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.joda.time.Duration;
@@ -16,6 +15,7 @@ import org.joda.time.Duration;
 import leap.data.beam.configuration.KafkaPipelineOptions;
 import leap.data.beam.core.LeapParDo;
 import leap.data.beam.examples.datatypes.AggregatedProspectCompany;
+import leap.data.beam.examples.datatypes.CoderAgpc;
 import leap.data.beam.examples.datatypes.ProspectCompany;
 import leap.data.beam.pipeline.LeapBeamPipeline;
 
@@ -24,6 +24,7 @@ public class ProspectCheckPipleline extends LeapBeamPipeline<KafkaPipelineOption
     @Override
     public void createPipeline(Pipeline p) {
 
+        p.getCoderRegistry().registerCoderForClass(AggregatedProspectCompany.class,new CoderAgpc());
         PCollection<String> input = p.apply(KafkaIO.<Long,String>read()
                                      .withBootstrapServers("localhost:9092")
                                      .withTopic("AggregateProspect")
@@ -34,9 +35,10 @@ public class ProspectCheckPipleline extends LeapBeamPipeline<KafkaPipelineOption
 
         PCollection<ProspectCompany> agpc = input.apply("Map to prospect" ,
                                                       LeapParDo.of(new FlatMapToAggregateProspect()));
+                                                      //.invalidsToDeadLetter("ProspectAggregated-DQL", "localhost:9092");
 
         PCollection<AggregatedProspectCompany> aggregatedProspectsCo = agpc
-                                                     .apply(Window.<ProspectCompany>
+                                                    .apply(Window.<ProspectCompany>
                                                              into(FixedWindows.of(Duration.standardSeconds(15))))
                                                       .apply(LeapParDo.of(new ProspectId()))
                                                       .apply(GroupByKey.create())
@@ -47,7 +49,7 @@ public class ProspectCheckPipleline extends LeapBeamPipeline<KafkaPipelineOption
         PCollection<String> results = aggregatedProspectsCo.apply("Map to JSON" ,
                                                       LeapParDo.of(new AgggregateProspectToJSON()));                                              
 
-                                      results.apply(KafkaIO.<Void,String>write()
+        results.apply(KafkaIO.<Void,String>write()
                                                      .withBootstrapServers("localhost:9092")
                                                      .withTopic("ProspectAggregated")
                                                      .withValueSerializer(StringSerializer.class)

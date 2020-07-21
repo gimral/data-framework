@@ -3,10 +3,6 @@ package leap.data.beam.examples.datatypes;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.beam.sdk.schemas.JavaBeanSchema;
-import org.apache.beam.sdk.schemas.annotations.DefaultSchema;
-
-@DefaultSchema(JavaBeanSchema.class)
 public class AggregatedProspectCompany {
 
     private Long id;

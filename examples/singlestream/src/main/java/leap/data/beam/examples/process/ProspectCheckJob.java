@@ -2,10 +2,6 @@ package leap.data.beam.examples.process;
 
 import java.io.IOException;
 
-import org.apache.beam.sdk.options.PipelineOptionsFactory;
-
-import leap.data.beam.configuration.KafkaPipelineOptions;
-
 public class ProspectCheckJob {
 
     public static void main(String[] args) throws IOException{
