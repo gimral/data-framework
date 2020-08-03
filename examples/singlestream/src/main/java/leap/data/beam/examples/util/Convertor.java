@@ -15,7 +15,6 @@ import com.google.gson.JsonSerializer;
 import org.joda.time.DateTime;
 
 import leap.data.beam.examples.datatypes.AggregatedProspectCompany;
-import leap.data.beam.examples.datatypes.Prospect;
 import leap.data.beam.examples.datatypes.ProspectCompany;
 
 public class Convertor {
