@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="EntryPointsManager">
-    <list size="4">
+    <list size="7">
       <item index="0" class="java.lang.String" itemvalue="org.apache.beam.sdk.options.Description" />
-      <item index="1" class="java.lang.String" itemvalue="org.apache.beam.sdk.transforms.DoFn.ProcessElement" />
-      <item index="2" class="java.lang.String" itemvalue="org.apache.logging.log4j.core.config.plugins.Plugin" />
-      <item index="3" class="java.lang.String" itemvalue="org.apache.logging.log4j.core.config.plugins.PluginFactory" />
+      <item index="1" class="java.lang.String" itemvalue="org.apache.beam.sdk.transforms.DoFn.OnTimer" />
+      <item index="2" class="java.lang.String" itemvalue="org.apache.beam.sdk.transforms.DoFn.ProcessElement" />
+      <item index="3" class="java.lang.String" itemvalue="org.apache.beam.sdk.transforms.DoFn.StateId" />
+      <item index="4" class="java.lang.String" itemvalue="org.apache.beam.sdk.transforms.DoFn.TimerId" />
+      <item index="5" class="java.lang.String" itemvalue="org.apache.logging.log4j.core.config.plugins.Plugin" />
+      <item index="6" class="java.lang.String" itemvalue="org.apache.logging.log4j.core.config.plugins.PluginFactory" />
     </list>
   </component>
   <component name="MavenProjectsManager">
@@ -16,6 +19,7 @@
     </option>
     <option name="ignoredFiles">
       <set>
+        <option value="$PROJECT_DIR$/framework-common-extensions/avro-test-harness/pom.xml" />
         <option value="$PROJECT_DIR$/framework-common-extensions/kafka-extension/pom.xml" />
       </set>
     </option>

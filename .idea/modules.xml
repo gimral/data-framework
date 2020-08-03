@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/framework-common-extensions/avro-test-harness/avro-test-harness.iml" filepath="$PROJECT_DIR$/framework-common-extensions/avro-test-harness/avro-test-harness.iml" />
       <module fileurl="file://$PROJECT_DIR$/beam-extensions/beam-extensions.iml" filepath="$PROJECT_DIR$/beam-extensions/beam-extensions.iml" />
       <module fileurl="file://$PROJECT_DIR$/framework-common-extensions/confluent-avro-extension/confluent-avro-extension.iml" filepath="$PROJECT_DIR$/framework-common-extensions/confluent-avro-extension/confluent-avro-extension.iml" />
       <module fileurl="file://$PROJECT_DIR$/framework.iml" filepath="$PROJECT_DIR$/framework.iml" />
