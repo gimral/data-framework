@@ -105,7 +105,7 @@ public class OneToManyJoinTest {
                 .addElements(TestDataProvider.getGenericAccount(1L,1L))
                 .addElements(TestDataProvider.getGenericAccount(1L,1L))
                 .addElements(TestDataProvider.getGenericAccount(2L,1L))
-                .addElements(TestDataProvider.getGenericAccount(2L,1L))
+                .addElements(TestDataProvider.getGenericAccount(3L,1L))
                 .advanceWatermarkToInfinity();
 
         TestStream<GenericRecord> transactionsStream = TestStream.create(AvroCoder.of(TestDataProvider.TransactionDetailSchema))
@@ -118,9 +118,11 @@ public class OneToManyJoinTest {
         expectedResult.add(getJoinedRecord(1L,1L));
         expectedResult.add(getJoinedRecord(1L,1L));
         expectedResult.add(getJoinedRecord(2L,1L));
+        List<GenericRecord> leftDroppedElements = new ArrayList<>();
+        leftDroppedElements.add(TestDataProvider.getGenericAccount(3L, 1L));
 
         testPipeline(accountsStream,transactionsStream,expectedResult,
-                null,null);
+                leftDroppedElements,null);
     }
 
     @Test
@@ -153,6 +155,7 @@ public class OneToManyJoinTest {
         Instant now = Instant.now();
 
         TestStream<GenericRecord> accountsStream = TestStream.create(AvroCoder.of(TestDataProvider.AccountSchema))
+                .addElements(TimestampedValue.of(TestDataProvider.getGenericAccount(3L,1L),now))
                 .addElements(TimestampedValue.of(TestDataProvider.getGenericAccount(1L,1L),now))
                 .advanceWatermarkTo(now.plus(Duration.standardSeconds(25)))
                 .addElements(TimestampedValue.of(TestDataProvider.getGenericAccount(2L,1L),now.plus(Duration.standardSeconds(20))))
@@ -164,17 +167,20 @@ public class OneToManyJoinTest {
                 .advanceWatermarkTo(now.plus(Duration.standardSeconds(25)))
                 .addElements(TimestampedValue.of(TestDataProvider.getGenericTransactionDetail(2L),now.plus(Duration.standardSeconds(30))))
                 .advanceWatermarkTo(now.plus(Duration.standardSeconds(40)))
-                .addElements(TimestampedValue.of(TestDataProvider.getGenericTransactionDetail(1L),now.plus(Duration.standardSeconds(35))))
+                .addElements(TimestampedValue.of(TestDataProvider.getGenericTransactionDetail(3L),now.plus(Duration.standardSeconds(35))))
                 .advanceWatermarkToInfinity();
 
         List<KV<Long,KV<GenericRecord,GenericRecord>>> expectedResult = new ArrayList<>();
         expectedResult.add(getJoinedRecord(1L,1L));
-        expectedResult.add(getJoinedRecord(1L,1L));
+        expectedResult.add(getJoinedRecord(2L,1L));
+        List<GenericRecord> leftDroppedElements = new ArrayList<>();
+        leftDroppedElements.add(TestDataProvider.getGenericAccount(1L, 1L));
+        leftDroppedElements.add(TestDataProvider.getGenericAccount(3L, 1L));
         List<GenericRecord> rightDroppedElements = new ArrayList<>();
         rightDroppedElements.add(TestDataProvider.getGenericTransactionDetail(3L));
 
         testPipeline(accountsStream,transactionsStream,expectedResult,
-                null,rightDroppedElements);
+                leftDroppedElements,rightDroppedElements);
     }
 
     public void testPipeline(TestStream<GenericRecord> accountsStream,
@@ -207,7 +213,7 @@ public class OneToManyJoinTest {
         if(rightDroppedElements != null)
             PAssert.that(droppedRightCollection.get(0)).containsInAnyOrder(rightDroppedElements);
         else
-            PAssert.that(droppedLeftCollection.get(0)).empty();
+            PAssert.that(droppedRightCollection.get(0)).empty();
 
         p.run().waitUntilFinish();
     }
