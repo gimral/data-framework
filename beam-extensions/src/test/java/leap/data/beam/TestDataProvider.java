@@ -25,12 +25,25 @@ public class TestDataProvider {
             "\"name\": \"TransactionDetail\"," +
             "\"namespace\": \"leap.data.beam.entity\"," +
             "\"fields\":[" +
+            "{\"name\":\"tran_id\",\"type\":[\"null\", \"long\"]}," +
             "{\"name\":\"acid\",\"type\":[\"null\", \"long\"]}," +
             "{\"name\":\"tran_type\",\"type\":[\"null\", \"string\"]}," +
             "{\"name\":\"amount\",\"type\":[\"null\", \"double\"]}" +
             "]}";
 
     public static Schema TransactionDetailSchema = new Schema.Parser().parse(TransactionDetailSchemaStr);
+
+    public static String TransactionHeaderSchemaStr = "" +
+            "{" +
+            "\"type\": \"record\"," +
+            "\"name\": \"TransactionDetail\"," +
+            "\"namespace\": \"leap.data.beam.entity\"," +
+            "\"fields\":[" +
+            "{\"name\":\"tran_id\",\"type\":[\"null\", \"long\"]}," +
+            "{\"name\":\"tran_name\",\"type\":[\"null\", \"string\"]}" +
+            "]}";
+
+    public static Schema TransactionHeaderSchema = new Schema.Parser().parse(TransactionHeaderSchemaStr);
 
     public static GenericRecord getGenericAccount(long acid, long cust_id){
         return new GenericRecordBuilder(AccountSchema)
@@ -41,8 +54,16 @@ public class TestDataProvider {
                 .build();
     }
 
-    public static GenericRecord getGenericTransactionDetail(long acid){
+    public static GenericRecord getGenericHeader(long tran_id){
+        return new GenericRecordBuilder(TransactionHeaderSchema)
+                .set("tran_id", tran_id)
+                .set("tran_name", "Tran Name" + tran_id)
+                .build();
+    }
+
+    public static GenericRecord getGenericTransactionDetail(long acid,long tran_id){
         return new GenericRecordBuilder(TransactionDetailSchema)
+                .set("tran_id", tran_id)
                 .set("acid", acid)
                 .set("tran_type", "TestType")
                 .set("amount", 10D)

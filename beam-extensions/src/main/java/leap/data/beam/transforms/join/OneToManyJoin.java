@@ -75,6 +75,18 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
                     .discardingFiredPanes()
                     .withAllowedLateness(Duration.ZERO));
         }
+        else if(!leftCollection.getWindowingStrategy().isTriggerSpecified()){
+            leftCollection = leftCollection.apply("Left Collection Global Window", Window.<KV<K, L>>into(new GlobalWindows())
+                    .triggering(Repeatedly.forever(AfterPane.elementCountAtLeast(1)))
+                    .discardingFiredPanes()
+                    .withAllowedLateness(Duration.ZERO));
+        }
+        else if(!rightCollection.getWindowingStrategy().isTriggerSpecified()){
+            rightCollection = rightCollection.apply("Right Collection Global Window", Window.<KV<K, R>>into(new GlobalWindows())
+                    .triggering(Repeatedly.forever(AfterPane.elementCountAtLeast(1)))
+                    .discardingFiredPanes()
+                    .withAllowedLateness(Duration.ZERO));
+        }
 
         PCollection<KV<K, CoGbkResult>> coGroupByResult =
                 KeyedPCollectionTuple.of(leftTupleTag, leftCollection)
