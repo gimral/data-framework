@@ -146,7 +146,7 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         private final StateSpec<ValueState<Boolean>> joinedState;
 
         @StateId(RIGHT_COLLECTION_STATE)
-        private final StateSpec<ValueState<List<R>>> rightCollectionState;
+        private final StateSpec<BagState<R>> rightCollectionState;
 
         private final Duration leftStateExpireDuration;
         private final Duration rightStateExpireDuration;
@@ -162,7 +162,7 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
             rightCollectionStateExpiryTimerSpec = TimerSpecs.timer(timeDomain);
             leftState = StateSpecs.value(leftCollectionCoder);
             joinedState = StateSpecs.value(BooleanCoder.of());
-            rightCollectionState = StateSpecs.value(ListCoder.of(rightCollectionCoder));
+            rightCollectionState = StateSpecs.bag(rightCollectionCoder);
             this.leftStateExpireDuration = leftStateExpireDuration;
             this.rightStateExpireDuration = rightStateExpireDuration;
 
@@ -176,7 +176,7 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
                                    @TimerId(RIGHT_COLLECTION_STATE_EXPIRING) Timer rightCollectionStateExpiryTimer,
                                    @StateId(LEFT_STATE) ValueState<L> leftState,
                                    @StateId(JOINED_STATE) ValueState<Boolean> joinedState,
-                                   @StateId(RIGHT_COLLECTION_STATE) ValueState<List<R>> rightCollectionState) {
+                                   @StateId(RIGHT_COLLECTION_STATE) BagState<R> rightCollectionState) {
             Boolean joined = false;
             Boolean newLeftValue = false;
             L leftValue = null;
@@ -202,17 +202,15 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
                 }
                 //New left value is encountered emit all right elements from state
                 if (newLeftValue) {
-                    List<R> pendingRightElements = rightCollectionState.read();
-                    if (pendingRightElements != null) {
-                        for (R rightElement :
-                                pendingRightElements) {
-                            KV<L, R> joinedElement = KV.of(leftValue, rightElement);
-                            KV<K, KV<L, R>> keyedJoinedElement = KV.of(c.element().getKey(), joinedElement);
-                            joined = true;
-                            c.output(keyedJoinedElement);
-                        }
-                        rightCollectionState.clear();
+                    Iterable<R> pendingRightElements = rightCollectionState.read();
+                    for (R rightElement :
+                            pendingRightElements) {
+                        KV<L, R> joinedElement = KV.of(leftValue, rightElement);
+                        KV<K, KV<L, R>> keyedJoinedElement = KV.of(c.element().getKey(), joinedElement);
+                        joined = true;
+                        c.output(keyedJoinedElement);
                     }
+                    rightCollectionState.clear();
                     leftState.write(leftValue);
                     leftStateExpiryTimer.offset(leftStateExpireDuration).setRelative();
                 }
@@ -221,17 +219,14 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
                 return;
             }
 
-            List<R> pendingRightElements = rightCollectionState.read();
-            if (pendingRightElements == null) {
-                pendingRightElements = new ArrayList<>();
-            }
-
             Iterable<R> rightElements = c.element().getValue().getAll(rightTupleTag);
+            boolean rightElementsExists = false;
             for (R rightElement : rightElements) {
-                pendingRightElements.add(rightElement);
+                rightCollectionState.add(rightElement);
+                rightElementsExists= true;
             }
-            rightCollectionState.write(pendingRightElements);
-            rightCollectionStateExpiryTimer.offset(rightStateExpireDuration).setRelative();
+            if(rightElementsExists)
+                rightCollectionStateExpiryTimer.offset(rightStateExpireDuration).setRelative();
         }
 
         @OnTimer(LEFT_STATE_EXPIRING)
@@ -254,17 +249,15 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
 
         @OnTimer(RIGHT_COLLECTION_STATE_EXPIRING)
         public void onRightCollectionStateExpire(OnTimerContext c,
-                                                 @StateId(RIGHT_COLLECTION_STATE) ValueState<List<R>> rightCollectionState) {
-            List<R> droppedElements = rightCollectionState.read();
-            if (droppedElements != null) {
-                for (R droppedElement :
-                        droppedElements) {
-                    droppedRightElements.inc();
-                    logger.debug("Clearing Right State for {}", droppedElement);
-                    c.output(rightTupleTag, droppedElement);
-                }
-                rightCollectionState.clear();
+                                                 @StateId(RIGHT_COLLECTION_STATE) BagState<R> rightCollectionState) {
+            Iterable<R> droppedElements = rightCollectionState.read();
+            for (R droppedElement :
+                    droppedElements) {
+                droppedRightElements.inc();
+                logger.debug("Clearing Right State for {}", droppedElement);
+                c.output(rightTupleTag, droppedElement);
             }
+            rightCollectionState.clear();
         }
 
     }
