@@ -1,9 +1,6 @@
 package leap.data.beam.transforms.join;
 
-import org.apache.beam.sdk.coders.BooleanCoder;
-import org.apache.beam.sdk.coders.Coder;
-import org.apache.beam.sdk.coders.KvCoder;
-import org.apache.beam.sdk.coders.ListCoder;
+import org.apache.beam.sdk.coders.*;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.state.*;
@@ -22,17 +19,17 @@ import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.math.BigInteger;
+import java.util.Optional;
 
-public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
+public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         WithDroppedJoinElements.Result<K, L, R>> {
 
-    public static <K, L, R> OneToManyJoin<K, L, R> inner(PCollection<KV<K, R>> rightCollection) {
-        return new OneToManyJoin<>(rightCollection);
+    public static <K, L, R> OneToOneJoin<K, L, R> inner(PCollection<KV<K, R>> rightCollection) {
+        return new OneToOneJoin<>(rightCollection);
     }
 
-    private static final Logger logger = LoggerFactory.getLogger(OneToManyJoin.class);
+    private static final Logger logger = LoggerFactory.getLogger(OneToOneJoin.class);
     private transient PCollection<KV<K, R>> rightCollection;
     private final Duration leftStateExpireDuration;
     private final Duration rightStateExpireDuration;
@@ -41,24 +38,24 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
     final TupleTag<L> leftTupleTag = new TupleTag<L>(){};
     final TupleTag<R> rightTupleTag = new TupleTag<R>(){};
 
-    public OneToManyJoin(PCollection<KV<K, R>> rightCollection) {
+    public OneToOneJoin(PCollection<KV<K, R>> rightCollection) {
         this.rightCollection = rightCollection;
         this.leftStateExpireDuration = Duration.standardSeconds(30);
         this.rightStateExpireDuration = Duration.standardSeconds(30);
     }
 
-    public OneToManyJoin(PCollection<KV<K, R>> rightCollection, Duration leftStateExpireDuration, Duration rightStateExpireDuration) {
+    public OneToOneJoin(PCollection<KV<K, R>> rightCollection, Duration leftStateExpireDuration, Duration rightStateExpireDuration) {
         this.rightCollection = rightCollection;
         this.leftStateExpireDuration = leftStateExpireDuration;
         this.rightStateExpireDuration = rightStateExpireDuration;
     }
 
-    public OneToManyJoin<K, L, R> withLeftStateExpireDuration(Duration leftStateExpireDuration) {
-        return new OneToManyJoin<>(this.rightCollection, leftStateExpireDuration, this.rightStateExpireDuration);
+    public OneToOneJoin<K, L, R> withLeftStateExpireDuration(Duration leftStateExpireDuration) {
+        return new OneToOneJoin<>(this.rightCollection, leftStateExpireDuration, this.rightStateExpireDuration);
     }
 
-    public OneToManyJoin<K, L, R> withRightStateExpireDuration(Duration rightStateExpireDuration) {
-        return new OneToManyJoin<>(this.rightCollection, this.leftStateExpireDuration, rightStateExpireDuration);
+    public OneToOneJoin<K, L, R> withRightStateExpireDuration(Duration rightStateExpireDuration) {
+        return new OneToOneJoin<>(this.rightCollection, this.leftStateExpireDuration, rightStateExpireDuration);
     }
 
     @Override
@@ -94,7 +91,7 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
                         .apply("CoGroupBy", CoGroupByKey.create());
 
         PCollectionTuple joinedResult = coGroupByResult.apply("Join", ParDo.of(
-                new OneToManyJoinDoFn(TimeDomain.EVENT_TIME,
+                new OneToOneJoinDoFn(TimeDomain.EVENT_TIME,
                         leftStateExpireDuration, rightStateExpireDuration,
                         getValueCoder(leftCollection), getValueCoder(rightCollection)))
                 .withOutputTags(outputTag, TupleTagList.of(leftTupleTag).and(rightTupleTag)));
@@ -124,20 +121,20 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
 
 
 
-    private class OneToManyJoinDoFn extends DoFn<KV<K, CoGbkResult>,
+    private class OneToOneJoinDoFn extends DoFn<KV<K, CoGbkResult>,
             KV<K, KV<L, R>>> {
 
         private static final String LEFT_STATE = "leftState";
         private static final String JOINED_STATE = "joinedState";
-        private static final String RIGHT_COLLECTION_STATE = "rightCollectionState";
+        private static final String RIGHT_STATE = "rightState";
         private static final String LEFT_STATE_EXPIRING = "leftCollectionStateExpiring";
-        private static final String RIGHT_COLLECTION_STATE_EXPIRING = "rightCollectionStateExpiring";
+        private static final String RIGHT_STATE_EXPIRING = "rightStateExpiring";
 
         @TimerId(LEFT_STATE_EXPIRING)
         private final TimerSpec leftStateExpiryTimerSpec;
 
-        @TimerId(RIGHT_COLLECTION_STATE_EXPIRING)
-        private final TimerSpec rightCollectionStateExpiryTimerSpec;
+        @TimerId(RIGHT_STATE_EXPIRING)
+        private final TimerSpec rightStateExpiryTimerSpec;
 
         @StateId(LEFT_STATE)
         private final StateSpec<ValueState<L>> leftState;
@@ -145,8 +142,8 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         @StateId(JOINED_STATE)
         private final StateSpec<ValueState<Boolean>> joinedState;
 
-        @StateId(RIGHT_COLLECTION_STATE)
-        private final StateSpec<BagState<R>> rightCollectionState;
+        @StateId(RIGHT_STATE)
+        private final StateSpec<ValueState<R>> rightState;
 
         private final Duration leftStateExpireDuration;
         private final Duration rightStateExpireDuration;
@@ -154,15 +151,15 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         private final Counter droppedRightElements;
         private final Counter droppedLeftElements;
 
-        public OneToManyJoinDoFn(TimeDomain timeDomain,
+        public OneToOneJoinDoFn(TimeDomain timeDomain,
                                  Duration leftStateExpireDuration, Duration rightStateExpireDuration,
                                  Coder<L> leftCollectionCoder, Coder<R> rightCollectionCoder
         ) {
             leftStateExpiryTimerSpec = TimerSpecs.timer(timeDomain);
-            rightCollectionStateExpiryTimerSpec = TimerSpecs.timer(timeDomain);
+            rightStateExpiryTimerSpec = TimerSpecs.timer(timeDomain);
             leftState = StateSpecs.value(leftCollectionCoder);
             joinedState = StateSpecs.value(BooleanCoder.of());
-            rightCollectionState = StateSpecs.bag(rightCollectionCoder);
+            rightState = StateSpecs.value(rightCollectionCoder);
             this.leftStateExpireDuration = leftStateExpireDuration;
             this.rightStateExpireDuration = rightStateExpireDuration;
 
@@ -173,60 +170,54 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         @ProcessElement
         public void processElement(ProcessContext c,
                                    @TimerId(LEFT_STATE_EXPIRING) Timer leftStateExpiryTimer,
-                                   @TimerId(RIGHT_COLLECTION_STATE_EXPIRING) Timer rightCollectionStateExpiryTimer,
+                                   @TimerId(RIGHT_STATE_EXPIRING) Timer rightStateExpiryTimer,
                                    @StateId(LEFT_STATE) ValueState<L> leftState,
                                    @StateId(JOINED_STATE) ValueState<Boolean> joinedState,
-                                   @StateId(RIGHT_COLLECTION_STATE) BagState<R> rightCollectionState) {
-            Boolean joined = false;
-            Boolean newLeftValue = false;
-            L leftValue = null;
+                                   @StateId(RIGHT_STATE) ValueState<R> rightState) {
+            Optional<L> leftValue = Optional.empty();
+            Optional<R> rightValue = Optional.empty();
             Iterable<L> leftElements = c.element().getValue().getAll(leftTupleTag);
             for (L leftElemet :
                     leftElements) {
-                leftValue = leftElemet;
-                newLeftValue = true;
+                leftValue = Optional.of(leftElemet);
+                //newLeftValue = true;
                 break;
             }
-            if (leftValue == null) {
-                leftValue = leftState.read();
-            }
-            //Left value exists emit all right values
-            //TODO: Maybe do not read left collection state until we are sure there are elements in right
-            if (leftValue != null) {
-                Iterable<R> rightElements = c.element().getValue().getAll(rightTupleTag);
-                for (R rightElement : rightElements) {
-                    KV<L, R> joinedElement = KV.of(leftValue, rightElement);
-                    KV<K, KV<L, R>> keyedJoinedElement = KV.of(c.element().getKey(), joinedElement);
-                    joined = true;
-                    c.output(keyedJoinedElement);
-                }
-                //New left value is encountered emit all right elements from state
-                if (newLeftValue) {
-                    Iterable<R> pendingRightElements = rightCollectionState.read();
-                    for (R rightElement :
-                            pendingRightElements) {
-                        KV<L, R> joinedElement = KV.of(leftValue, rightElement);
-                        KV<K, KV<L, R>> keyedJoinedElement = KV.of(c.element().getKey(), joinedElement);
-                        joined = true;
-                        c.output(keyedJoinedElement);
-                    }
-                    rightCollectionState.clear();
-                    leftState.write(leftValue);
-                    leftStateExpiryTimer.offset(leftStateExpireDuration).setRelative();
-                }
-                if(joined)
-                    joinedState.write(true);
-                return;
-            }
-
             Iterable<R> rightElements = c.element().getValue().getAll(rightTupleTag);
-            boolean rightElementsExists = false;
-            for (R rightElement : rightElements) {
-                rightCollectionState.add(rightElement);
-                rightElementsExists= true;
+            for (R rightElement :
+                    rightElements) {
+                rightValue = Optional.of(rightElement);
+                //newLeftValue = true;
+                break;
             }
-            if(rightElementsExists)
-                rightCollectionStateExpiryTimer.offset(rightStateExpireDuration).setRelative();
+            if(!leftValue.isPresent() && !rightValue.isPresent())
+                return;
+            Boolean joined = joinedState.read();
+            if(joined != null && joined)
+                return;
+            if(!rightValue.isPresent()) {
+                rightValue = Optional.ofNullable(rightState.read());
+                if(!rightValue.isPresent()) {
+                    leftState.write(leftValue.get());
+                    leftStateExpiryTimer.offset(leftStateExpireDuration).setRelative();
+                    return;
+                }
+            }
+            if(!leftValue.isPresent()) {
+                leftValue = Optional.ofNullable(leftState.read());
+                if(!leftValue.isPresent()){
+                    rightState.write(rightValue.get());
+                    rightStateExpiryTimer.offset(rightStateExpireDuration).setRelative();
+                    return;
+                }
+            }
+            KV<L, R> joinedElement = KV.of(leftValue.get(), rightValue.get());
+            KV<K, KV<L, R>> keyedJoinedElement = KV.of(c.element().getKey(), joinedElement);
+            c.output(keyedJoinedElement);
+            leftState.clear();
+            rightState.clear();
+            joinedState.write(true);
+
         }
 
         @OnTimer(LEFT_STATE_EXPIRING)
@@ -234,30 +225,27 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
                                                 @StateId(LEFT_STATE) ValueState<L> leftState,
                                                 @StateId(JOINED_STATE) ValueState<Boolean> joinedState) {
             L leftValue = leftState.read();
-            //Not possible for it to be null but just to be sure
             if(leftValue != null) {
-                Boolean joined = joinedState.read();
-                if(joined == null || !joined){
-                    droppedLeftElements.inc();
-                    c.output(leftTupleTag, leftValue);
-                }
+                droppedLeftElements.inc();
+                c.output(leftTupleTag, leftValue);
                 logger.debug("Clearing Left State for {}", leftValue);
             }
             leftState.clear();
             joinedState.clear();
         }
 
-        @OnTimer(RIGHT_COLLECTION_STATE_EXPIRING)
-        public void onRightCollectionStateExpire(OnTimerContext c,
-                                                 @StateId(RIGHT_COLLECTION_STATE) BagState<R> rightCollectionState) {
-            Iterable<R> droppedElements = rightCollectionState.read();
-            for (R droppedElement :
-                    droppedElements) {
+        @OnTimer(RIGHT_STATE_EXPIRING)
+        public void onRightStateExpire(OnTimerContext c,
+                                       @StateId(RIGHT_STATE) ValueState<R> rightState,
+                                       @StateId(JOINED_STATE) ValueState<Boolean> joinedState) {
+            R rightValue = rightState.read();
+            if(rightValue != null) {
                 droppedRightElements.inc();
-                logger.debug("Clearing Right State for {}", droppedElement);
-                c.output(rightTupleTag, droppedElement);
+                c.output(rightTupleTag, rightValue);
+                logger.debug("Clearing Right State for {}", rightValue);
             }
-            rightCollectionState.clear();
+            rightState.clear();
+            joinedState.clear();
         }
 
     }

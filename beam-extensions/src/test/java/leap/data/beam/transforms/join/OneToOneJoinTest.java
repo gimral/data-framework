@@ -25,9 +25,9 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
-public class OneToManyJoinTest {
+public class OneToOneJoinTest {
     //TODO:Test state is emptied
-    private static final Logger logger = LoggerFactory.getLogger(OneToManyJoinTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(OneToOneJoinTest.class);
 
     @Rule
     public TestPipeline p = TestPipeline.create();
@@ -61,13 +61,12 @@ public class OneToManyJoinTest {
 
         TestStream<GenericRecord> transactionsStream = TestStream.create(AvroCoder.of(TestDataProvider.TransactionDetailSchema))
                 .addElements(TestDataProvider.getGenericTransactionDetail(1L,1L))
-                .addElements(TestDataProvider.getGenericTransactionDetail(1L,2L))
+                .addElements(TestDataProvider.getGenericTransactionDetail(1L,1L))
                 .addElements(TestDataProvider.getGenericTransactionDetail(2L,3L))
                 .advanceWatermarkToInfinity();
 
         List<KV<Long,KV<GenericRecord,GenericRecord>>> expectedResult = new ArrayList<>();
         expectedResult.add(getJoinedRecord(1L,1L,1L));
-        expectedResult.add(getJoinedRecord(1L,1L,2L));
         expectedResult.add(getJoinedRecord(2L,1L,3L));
 
         testPipeline(accountsStream,transactionsStream,expectedResult,
@@ -86,13 +85,12 @@ public class OneToManyJoinTest {
 
         TestStream<GenericRecord> transactionsStream = TestStream.create(AvroCoder.of(TestDataProvider.TransactionDetailSchema))
                 .addElements(TestDataProvider.getGenericTransactionDetail(1L,1L))
-                .addElements(TestDataProvider.getGenericTransactionDetail(1L,2L))
+                .addElements(TestDataProvider.getGenericTransactionDetail(1L,1L))
                 .addElements(TestDataProvider.getGenericTransactionDetail(2L,3L))
                 .advanceWatermarkToInfinity();
 
         List<KV<Long,KV<GenericRecord,GenericRecord>>> expectedResult = new ArrayList<>();
         expectedResult.add(getJoinedRecord(1L,1L,1L));
-        expectedResult.add(getJoinedRecord(1L,1L,2L));
         expectedResult.add(getJoinedRecord(2L,1L,3L));
 
         testPipeline(accountsStream,transactionsStream,expectedResult,
@@ -111,13 +109,12 @@ public class OneToManyJoinTest {
 
         TestStream<GenericRecord> transactionsStream = TestStream.create(AvroCoder.of(TestDataProvider.TransactionDetailSchema))
                 .addElements(TestDataProvider.getGenericTransactionDetail(1L,1L))
-                .addElements(TestDataProvider.getGenericTransactionDetail(1L,2L))
+                .addElements(TestDataProvider.getGenericTransactionDetail(1L,1L))
                 .addElements(TestDataProvider.getGenericTransactionDetail(2L,3L))
                 .advanceWatermarkToInfinity();
 
         List<KV<Long,KV<GenericRecord,GenericRecord>>> expectedResult = new ArrayList<>();
         expectedResult.add(getJoinedRecord(1L,1L,1L));
-        expectedResult.add(getJoinedRecord(1L,1L,2L));
         expectedResult.add(getJoinedRecord(2L,1L,3L));
         List<GenericRecord> leftDroppedElements = new ArrayList<>();
         leftDroppedElements.add(TestDataProvider.getGenericAccount(3L, 1L));
@@ -136,13 +133,12 @@ public class OneToManyJoinTest {
 
         TestStream<GenericRecord> transactionsStream = TestStream.create(AvroCoder.of(TestDataProvider.TransactionDetailSchema))
                 .addElements(TestDataProvider.getGenericTransactionDetail(1L,1L))
-                .addElements(TestDataProvider.getGenericTransactionDetail(1L,2L))
+                .addElements(TestDataProvider.getGenericTransactionDetail(1L,1L))
                 .addElements(TestDataProvider.getGenericTransactionDetail(3L,3L))
                 .advanceWatermarkToInfinity();
 
         List<KV<Long,KV<GenericRecord,GenericRecord>>> expectedResult = new ArrayList<>();
         expectedResult.add(getJoinedRecord(1L,1L,1L));
-        expectedResult.add(getJoinedRecord(1L,1L,2L));
         List<GenericRecord> rightDroppedElements = new ArrayList<>();
         rightDroppedElements.add(TestDataProvider.getGenericTransactionDetail(3L,3L));
 
@@ -201,7 +197,7 @@ public class OneToManyJoinTest {
         List<PCollection<GenericRecord>> droppedRightCollection = new ArrayList<>();
         PCollection<KV<Long,KV<GenericRecord,GenericRecord>>> joinedRecords =
                 accounts.apply("Join with Transactions",
-                        OneToManyJoin.inner(transactions))
+                        OneToOneJoin.inner(transactions))
                             .droppedElementsTo(droppedLeftCollection,droppedRightCollection
                 );
 
@@ -263,12 +259,12 @@ public class OneToManyJoinTest {
         List<PCollection<GenericRecord>> droppedRightCollection = new ArrayList<>();
         PCollection<KV<Long,KV<GenericRecord,GenericRecord>>> joinedRecords =
                 accounts.apply("Join with Transactions",
-                        OneToManyJoin.inner(transactions))
+                        OneToOneJoin.inner(transactions))
                         .droppedElementsTo(droppedLeftCollection,droppedRightCollection
                         ).apply("ReKey", ParDo.of(getReKeyFn()));
 
         PCollection<KV<Long, KV<GenericRecord, KV<GenericRecord, GenericRecord>>>> resultJoin = transactionHeaders
-                .apply("Join with Header",OneToManyJoin.inner(joinedRecords)).droppedElementsIgnored();
+                .apply("Join with Header",OneToOneJoin.inner(joinedRecords)).droppedElementsIgnored();
 
         List<KV<Long, KV<GenericRecord, KV<GenericRecord, GenericRecord>>>> expectedResult = new ArrayList<>();
         expectedResult.add(getMultiJoinedRecord(1L,1L,1L));

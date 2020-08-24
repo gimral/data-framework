@@ -204,7 +204,7 @@ public class LeapKafkaIOTest {
             String topic = "test";
             p.apply(mkKafkaReadTransform(numElements))
                     .apply(
-                            LeapKafkaIO.<GenericRecord>writeDefault()
+                            LeapKafkaIO.<GenericRecord>writeValues()
                                     .withTopic(topic)
                                     .withProducerFactoryFn(new ProducerFactoryFn<>(producerWrapper.producerKey)));
             p.run();

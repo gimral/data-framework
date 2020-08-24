@@ -25,7 +25,7 @@ public class ProducerFactoryFn<V>
 
     final String producerKey;
 
-    ProducerFactoryFn(String producerKey) {
+    public ProducerFactoryFn(String producerKey) {
         this.producerKey = producerKey;
     }
 
@@ -59,8 +59,8 @@ public class ProducerFactoryFn<V>
 
 
 
-        final String producerKey;
-        final MockProducer<String, V> mockProducer;
+        public final String producerKey;
+        public final MockProducer<String, V> mockProducer;
 
         // MockProducer has "closed" method starting version 0.11.
         private static Method closedMethod;
@@ -132,12 +132,12 @@ public class ProducerFactoryFn<V>
         private final ExecutorService injectorThread;
         private int numCompletions = 0;
 
-        ProducerSendCompletionThread(MockProducer<String, V> mockProducer) {
+        public ProducerSendCompletionThread(MockProducer<String, V> mockProducer) {
             // complete everything successfully
             this(mockProducer, 0, 0);
         }
 
-        ProducerSendCompletionThread(
+        public ProducerSendCompletionThread(
                 MockProducer<String, V> mockProducer, int maxErrors, int errorFrequency) {
             this.mockProducer = mockProducer;
             this.maxErrors = maxErrors;
@@ -146,7 +146,7 @@ public class ProducerFactoryFn<V>
         }
 
         @SuppressWarnings("FutureReturnValueIgnored")
-        ProducerSendCompletionThread<V> start() {
+        public ProducerSendCompletionThread<V> start() {
             injectorThread.submit(
                     () -> {
                         int errorsInjected = 0;
@@ -182,7 +182,7 @@ public class ProducerFactoryFn<V>
             return this;
         }
 
-        void shutdown() {
+        public void shutdown() {
             done.set(true);
             injectorThread.shutdown();
             try {

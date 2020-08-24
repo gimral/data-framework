@@ -94,8 +94,14 @@ public class LeapKafkaIO {
                 .build();
     }
 
-    public static <V> LeapRecordWrite<V> writeDefault(){
-        return new AutoValue_LeapKafkaIO_LeapRecordWrite.Builder<V>()
+    public static <K,V> LeapRecordWrite<K,V> writeDefault(){
+        return new AutoValue_LeapKafkaIO_LeapRecordWrite.Builder<K,V>()
+                .setTopic("")
+                .build();
+    }
+
+    public static <V> LeapRecordWrite<String,V> writeValues(){
+        return new AutoValue_LeapKafkaIO_LeapRecordWrite.Builder<String,V>()
                 .setTopic("")
                 .build();
     }
@@ -118,6 +124,7 @@ public class LeapKafkaIO {
         KafkaIO.WriteRecords<K,V> writer = KafkaIO.<K,V>writeRecords()
                 .withBootstrapServers(options.getKafkaBootstrapServers())
                 .withProducerConfigUpdates(kafkaProperties)
+                .withKeySerializer((Class<? extends Serializer<K>>) new KafkaRecordSerializer<>().getClass())
                 .withValueSerializer((Class<? extends Serializer<V>>) new KafkaRecordSerializer<>().getClass());
         return writer;
     }
@@ -324,14 +331,14 @@ public class LeapKafkaIO {
 
     @SuppressWarnings("InstantiatingObjectToGetClassObject")
     @AutoValue
-    public abstract static class LeapRecordWrite<V> extends PTransform<PCollection<KV<String, V>>, PDone> {
+    public abstract static class LeapRecordWrite<K,V> extends PTransform<PCollection<KV<K, V>>, PDone> {
         abstract String getTopic();
         @Nullable
-        abstract SerializableFunction<Map<String, Object>, Producer<String, V>> getProducerFactoryFn();
-        abstract LeapKafkaIO.LeapRecordWrite.Builder<V> toBuilder();
+        abstract SerializableFunction<Map<String, Object>, Producer<K, V>> getProducerFactoryFn();
+        abstract LeapKafkaIO.LeapRecordWrite.Builder<K,V> toBuilder();
 
         @Override
-        public PDone expand(PCollection<KV<String, V>> input) {
+        public PDone expand(PCollection<KV<K, V>> input) {
             checkArgument(
                     input.getPipeline().getOptions() instanceof KafkaPipelineOptions,
                     "PipelineOptions should implement KafkaPipelineOptions");
@@ -340,11 +347,11 @@ public class LeapKafkaIO {
             Map<String,Object> kafkaProperties = getKafkaProperties(options);
 
             @SuppressWarnings("unchecked")
-            KafkaIO.Write<String,V> writer = KafkaIO.<String,V>write()
+            KafkaIO.Write<K,V> writer = KafkaIO.<K,V>write()
                     .withBootstrapServers(options.getKafkaBootstrapServers())
                     .withTopic(getTopic())
                     .withProducerConfigUpdates(kafkaProperties)
-                    .withKeySerializer(StringSerializer.class)
+                    .withKeySerializer((Class<? extends Serializer<K>>) new KafkaRecordSerializer<>().getClass())
                     .withValueSerializer((Class<? extends Serializer<V>>) new KafkaRecordSerializer<>().getClass());
 
             if(getProducerFactoryFn() != null){
@@ -355,17 +362,17 @@ public class LeapKafkaIO {
         }
 
         @AutoValue.Builder
-        abstract static class Builder<V>{
-            abstract LeapKafkaIO.LeapRecordWrite.Builder<V> setTopic(String topic);
-            abstract LeapKafkaIO.LeapRecordWrite.Builder<V> setProducerFactoryFn(
-                    SerializableFunction<Map<String, Object>, Producer<String, V>> fn);
-            abstract LeapKafkaIO.LeapRecordWrite<V> build();
+        abstract static class Builder<K,V>{
+            abstract LeapKafkaIO.LeapRecordWrite.Builder<K,V> setTopic(String topic);
+            abstract LeapKafkaIO.LeapRecordWrite.Builder<K,V> setProducerFactoryFn(
+                    SerializableFunction<Map<String, Object>, Producer<K, V>> fn);
+            abstract LeapKafkaIO.LeapRecordWrite<K,V> build();
         }
 
         /**
          * Sets the topic to read from.
          */
-        public LeapKafkaIO.LeapRecordWrite<V> withTopic(String topic) {
+        public LeapKafkaIO.LeapRecordWrite<K,V> withTopic(String topic) {
             return toBuilder().setTopic(topic).build();
         }
 
@@ -373,8 +380,8 @@ public class LeapKafkaIO {
          * Sets a custom function to create Kafka producer. Primarily used for tests. Default is {@link
          * KafkaProducer}
          */
-        public LeapKafkaIO.LeapRecordWrite<V> withProducerFactoryFn(
-                SerializableFunction<Map<String, Object>, Producer<String,V>> producerFactoryFn) {
+        public LeapKafkaIO.LeapRecordWrite<K,V> withProducerFactoryFn(
+                SerializableFunction<Map<String, Object>, Producer<K,V>> producerFactoryFn) {
             return toBuilder().setProducerFactoryFn(producerFactoryFn).build();
         }
 
@@ -392,10 +399,10 @@ public class LeapKafkaIO {
      * Same as {@code Write<K, V>} without a Key. Null is used for key as it is the convention is
      * Kafka when there is no key specified. Majority of Kafka writers don't specify a key.
      */
-    private static class KafkaValueWrite<V> extends PTransform<PCollection<V>, PDone> {
-        private final LeapKafkaIO.LeapRecordWrite<V> kvWriteTransform;
+    private static class KafkaValueWrite<K,V> extends PTransform<PCollection<V>, PDone> {
+        private final LeapKafkaIO.LeapRecordWrite<K,V> kvWriteTransform;
 
-        private KafkaValueWrite(LeapKafkaIO.LeapRecordWrite<V> kvWriteTransform) {
+        private KafkaValueWrite(LeapKafkaIO.LeapRecordWrite<K,V> kvWriteTransform) {
             this.kvWriteTransform = kvWriteTransform;
         }
 
@@ -405,9 +412,9 @@ public class LeapKafkaIO {
                     .apply(
                             "Kafka values with default key",
                             MapElements.via(
-                                    new SimpleFunction<V, KV<String, V>>() {
+                                    new SimpleFunction<V, KV<K, V>>() {
                                         @Override
-                                        public KV<String, V> apply(V element) {
+                                        public KV<K, V> apply(V element) {
                                             return KV.of(null, element);
                                         }
                                     }))

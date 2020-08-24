@@ -143,7 +143,7 @@ public class WithInvalids {
         /**
          *  Adds the invalid collection to a configured dead letter queue and returns just the output collection.
          */
-        public OutputT invalidsToDeadLetter(DeadLetterQueue.DeadLetterFn<Void,InvalidElementT> deadLetterFn) {
+        public OutputT invalidsToDeadLetter(DeadLetterTransform<Void,InvalidElementT> deadLetterTransform) {
             invalids()
                     .apply(ParDo.of(new DoFn<InvalidElementT, KV<Void,InvalidElementT>>() {
                         @ProcessElement
@@ -151,7 +151,7 @@ public class WithInvalids {
                             c.output(KV.of(null,element));
                         }
                     }))
-                    .apply(deadLetterFn);
+                    .apply(deadLetterTransform);
             return output();
         }
 

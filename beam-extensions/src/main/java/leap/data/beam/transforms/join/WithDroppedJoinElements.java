@@ -1,15 +1,13 @@
 package leap.data.beam.transforms.join;
 
 import com.google.auto.value.AutoValue;
-import leap.data.beam.transforms.DeadLetterQueue;
+import leap.data.beam.transforms.DeadLetterTransform;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.values.*;
 
 import javax.annotation.Nullable;
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,25 +80,25 @@ public class WithDroppedJoinElements {
         /**
          *  Adds the dropped elemet collection to a configured dead letter queue and returns just the output collection.
          */
-        public PCollection<KV<K, KV<L, R>>> droppedElementsToDeadLetter(DeadLetterQueue.DeadLetterFn<Void,L> leftDroppedElementDeadLetterFn,
-                                            DeadLetterQueue.DeadLetterFn<Void,R> rightDroppedElementDeadLetterFn) {
-            if(leftDroppedElementDeadLetterFn != null)
+        public PCollection<KV<K, KV<L, R>>> droppedElementsToDeadLetter(DeadLetterTransform<Void,L> leftDroppedElementDeadLetterTransform,
+                                                                        DeadLetterTransform<Void,R> rightDroppedElementDeadLetterTransform) {
+            if(leftDroppedElementDeadLetterTransform != null)
                 leftDroppedElements()
                         .apply(WithKeys.of((SerializableFunction<L, Void>) input -> null))
-                        .apply(leftDroppedElementDeadLetterFn);
-            if(rightDroppedElementDeadLetterFn != null)
+                        .apply(leftDroppedElementDeadLetterTransform);
+            if(rightDroppedElementDeadLetterTransform != null)
                 rightDroppedElements()
                         .apply(WithKeys.of((SerializableFunction<R, Void>) input -> null))
-                        .apply(rightDroppedElementDeadLetterFn);
+                        .apply(rightDroppedElementDeadLetterTransform);
             return output();
         }
 
-        public PCollection<KV<K, KV<L, R>>> droppedLeftElementsToDeadLetter(DeadLetterQueue.DeadLetterFn<Void,L> leftDroppedElementDeadLetterFn) {
-            return droppedElementsToDeadLetter(leftDroppedElementDeadLetterFn,null);
+        public PCollection<KV<K, KV<L, R>>> droppedLeftElementsToDeadLetter(DeadLetterTransform<Void,L> leftDroppedElementDeadLetterTransform) {
+            return droppedElementsToDeadLetter(leftDroppedElementDeadLetterTransform,null);
         }
 
-        public PCollection<KV<K, KV<L, R>>> droppedRightElementsToDeadLetter(DeadLetterQueue.DeadLetterFn<Void,R> rightDroppedElementDeadLetterFn) {
-            return droppedElementsToDeadLetter(null,rightDroppedElementDeadLetterFn);
+        public PCollection<KV<K, KV<L, R>>> droppedRightElementsToDeadLetter(DeadLetterTransform<Void,R> rightDroppedElementDeadLetterTransform) {
+            return droppedElementsToDeadLetter(null, rightDroppedElementDeadLetterTransform);
         }
 
         @Override
