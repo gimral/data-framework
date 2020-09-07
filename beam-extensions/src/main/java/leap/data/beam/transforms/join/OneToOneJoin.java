@@ -10,10 +10,7 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.join.CoGbkResult;
 import org.apache.beam.sdk.transforms.join.CoGroupByKey;
 import org.apache.beam.sdk.transforms.join.KeyedPCollectionTuple;
-import org.apache.beam.sdk.transforms.windowing.AfterPane;
-import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
-import org.apache.beam.sdk.transforms.windowing.Repeatedly;
-import org.apache.beam.sdk.transforms.windowing.Window;
+import org.apache.beam.sdk.transforms.windowing.*;
 import org.apache.beam.sdk.values.*;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
@@ -61,25 +58,16 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
     @Override
     public WithDroppedJoinElements.Result<K, L, R> expand(PCollection<KV<K, L>> leftCollection) {
 
-        if (!leftCollection.getWindowingStrategy().isTriggerSpecified()
-                && !rightCollection.getWindowingStrategy().isTriggerSpecified()) {
+        if(!leftCollection.getWindowingStrategy().isTriggerSpecified()){
             leftCollection = leftCollection.apply("Left Collection Global Window", Window.<KV<K, L>>into(new GlobalWindows())
-                    .triggering(Repeatedly.forever(AfterPane.elementCountAtLeast(1)))
-                    .discardingFiredPanes()
-                    .withAllowedLateness(Duration.ZERO));
-            rightCollection = rightCollection.apply("Right Collection Global Window", Window.<KV<K, R>>into(new GlobalWindows())
+                    .withTimestampCombiner(TimestampCombiner.EARLIEST)
                     .triggering(Repeatedly.forever(AfterPane.elementCountAtLeast(1)))
                     .discardingFiredPanes()
                     .withAllowedLateness(Duration.ZERO));
         }
-        else if(!leftCollection.getWindowingStrategy().isTriggerSpecified()){
-            leftCollection = leftCollection.apply("Left Collection Global Window", Window.<KV<K, L>>into(new GlobalWindows())
-                    .triggering(Repeatedly.forever(AfterPane.elementCountAtLeast(1)))
-                    .discardingFiredPanes()
-                    .withAllowedLateness(Duration.ZERO));
-        }
-        else if(!rightCollection.getWindowingStrategy().isTriggerSpecified()){
+        if(!rightCollection.getWindowingStrategy().isTriggerSpecified()){
             rightCollection = rightCollection.apply("Right Collection Global Window", Window.<KV<K, R>>into(new GlobalWindows())
+                    .withTimestampCombiner(TimestampCombiner.EARLIEST)
                     .triggering(Repeatedly.forever(AfterPane.elementCountAtLeast(1)))
                     .discardingFiredPanes()
                     .withAllowedLateness(Duration.ZERO));
