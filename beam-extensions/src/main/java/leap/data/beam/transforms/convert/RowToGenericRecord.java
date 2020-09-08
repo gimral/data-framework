@@ -2,7 +2,6 @@ package leap.data.beam.transforms.convert;
 
 import org.apache.avro.generic.GenericRecord;
 import org.apache.beam.sdk.coders.AvroCoder;
-import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.utils.AvroUtils;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -11,10 +10,10 @@ import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
 
-public class RowToGenericRecordTransform extends PTransform<PCollection<Row>, PCollection<GenericRecord>> {
+public class RowToGenericRecord extends PTransform<PCollection<Row>, PCollection<GenericRecord>> {
 
-    public static RowToGenericRecordTransform convert(){
-        return new RowToGenericRecordTransform();
+    public static RowToGenericRecord convert(){
+        return new RowToGenericRecord();
     }
 
 //    private final org.apache.avro.Schema schema;

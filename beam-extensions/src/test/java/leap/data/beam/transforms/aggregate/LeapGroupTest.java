@@ -1,9 +1,10 @@
 package leap.data.beam.transforms.aggregate;
 
 import leap.data.beam.TestDataProvider;
-import leap.data.beam.transforms.convert.GenericRecordToRowTransform;
-import leap.data.beam.transforms.convert.RowToGenericRecordTransform;
+import leap.data.beam.transforms.convert.GenericRecordToRow;
+import leap.data.beam.transforms.convert.RowToGenericRecord;
 import leap.data.beam.transforms.join.OneToManyJoin;
+import leap.data.beam.transforms.join.UnNestJoinedGenericRecords;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.beam.sdk.coders.AvroCoder;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -58,15 +59,21 @@ public class LeapGroupTest {
                         .droppedElementsIgnored()
                 .apply(Values.create()).apply(Keys.create());
 
+        accounts.apply("Join with Transactions 2",
+                        OneToManyJoin.inner(transactions))
+                        .droppedElementsIgnored()
+                .apply("UnNest", UnNestJoinedGenericRecords.of())
+                        .apply("Log 2", ParDo.of(getLogger()));
+
         joinedRecords
                 .apply("Window", Window.<GenericRecord>into(Sessions.withGapDuration(Duration.standardSeconds(1)))
                     .triggering(AfterWatermark.pastEndOfWindow())
                     .withAllowedLateness(Duration.ZERO))
-                .apply("ToRows", GenericRecordToRowTransform.convert(TestDataProvider.AccountSchema))
+                .apply("ToRows", GenericRecordToRow.convert(TestDataProvider.AccountSchema))
                 .apply("Aggregate", Group.<Row>byFieldNames("acid")
                     .aggregateField("cust_id", Max.ofLongs(),"max_cust_id"))
-                .apply("ToGeneric", RowToGenericRecordTransform.convert())
-                .apply("Log", ParDo.of(getLogger()));
+                .apply("ToGeneric", RowToGenericRecord.convert());
+                //.apply("Log", ParDo.of(getLogger()));
 
 
         p.run().waitUntilFinish();

@@ -10,15 +10,15 @@ import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.Row;
 
-public class GenericRecordToRowTransform extends PTransform<PCollection<GenericRecord>, PCollection<Row>> {
+public class GenericRecordToRow extends PTransform<PCollection<GenericRecord>, PCollection<Row>> {
 
-    public static GenericRecordToRowTransform convert(org.apache.avro.Schema schema){
-        return new GenericRecordToRowTransform(schema);
+    public static GenericRecordToRow convert(org.apache.avro.Schema schema){
+        return new GenericRecordToRow(schema);
     }
 
     private final org.apache.avro.Schema schema;
 
-    public GenericRecordToRowTransform(org.apache.avro.Schema schema){
+    public GenericRecordToRow(org.apache.avro.Schema schema){
         this.schema = schema;
     }
 
@@ -33,14 +33,4 @@ public class GenericRecordToRowTransform extends PTransform<PCollection<GenericR
             }
         })).setRowSchema(beamSchema);
     }
-
-//    private static class GenericRecordToRowDoFn extends DoFn<GenericRecord, Row>{
-//        public GenericRecordToRowDoFn(){
-//
-//        }
-//        @ProcessElement
-//        public void processElement(ProcessContext context) {
-//            context.output(AvroUtils.toBeamRowStrict(context.element(), null));
-//        }
-//    }
 }
