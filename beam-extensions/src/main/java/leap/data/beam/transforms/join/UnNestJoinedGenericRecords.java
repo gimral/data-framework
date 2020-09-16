@@ -15,25 +15,35 @@ import org.apache.beam.sdk.values.PCollection;
 public class UnNestJoinedGenericRecords<K>
         extends PTransform<PCollection<KV<K,KV<GenericRecord,GenericRecord>>>,PCollection<KV<K,GenericRecord>>> {
 
-
+    private Schema writeSchema;
     public static <K> UnNestJoinedGenericRecords<K> of(){
-        return new UnNestJoinedGenericRecords<>();
+        return new UnNestJoinedGenericRecords<>(null);
+    }
+
+    public static <K> UnNestJoinedGenericRecords<K> of(Schema writeSchema){
+        return new UnNestJoinedGenericRecords<>(writeSchema);
+    }
+
+    public UnNestJoinedGenericRecords(Schema writeSchema){
+        this.writeSchema = writeSchema;
     }
 
     @Override
     public PCollection<KV<K,GenericRecord>> expand(PCollection<KV<K, KV<GenericRecord, GenericRecord>>> input) {
-        KvCoder<K,KV<GenericRecord, GenericRecord>> kvCoder = (KvCoder<K,
-                KV<GenericRecord, GenericRecord>>)input.getCoder();
-        KvCoder<GenericRecord, GenericRecord> coder =
-                (KvCoder<GenericRecord, GenericRecord>) kvCoder.getValueCoder();
-        @SuppressWarnings("unchecked")
-        AvroCoder<GenericRecord> leftCoder = (AvroCoder<GenericRecord>) coder.getKeyCoder();
-        @SuppressWarnings("unchecked")
-        AvroCoder<GenericRecord> rightCoder = (AvroCoder<GenericRecord>) coder.getValueCoder();
+        KvCoder<K, KV<GenericRecord, GenericRecord>> kvCoder = (KvCoder<K,
+                KV<GenericRecord, GenericRecord>>) input.getCoder();
+        if(writeSchema == null) {
+            KvCoder<GenericRecord, GenericRecord> coder =
+                    (KvCoder<GenericRecord, GenericRecord>) kvCoder.getValueCoder();
+            @SuppressWarnings("unchecked")
+            AvroCoder<GenericRecord> leftCoder = (AvroCoder<GenericRecord>) coder.getKeyCoder();
+            @SuppressWarnings("unchecked")
+            AvroCoder<GenericRecord> rightCoder = (AvroCoder<GenericRecord>) coder.getValueCoder();
 
-        Schema mergedSchema = AvroSchemaUtil.mergeSchemas(leftCoder.getSchema(), rightCoder.getSchema());
-        return input.apply("UnNest Joined Records", ParDo.of(new UnNestJoinedGenericRecordsDoFn<>(mergedSchema)))
-                    .setCoder(KvCoder.of(kvCoder.getKeyCoder(),AvroCoder.of(mergedSchema)));
+            writeSchema = AvroSchemaUtil.mergeSchemas(leftCoder.getSchema(), rightCoder.getSchema());
+        }
+        return input.apply("UnNest Joined Records", ParDo.of(new UnNestJoinedGenericRecordsDoFn<>(writeSchema)))
+                    .setCoder(KvCoder.of(kvCoder.getKeyCoder(),AvroCoder.of(writeSchema)));
     }
 
 

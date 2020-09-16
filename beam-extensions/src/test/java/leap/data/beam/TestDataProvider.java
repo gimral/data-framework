@@ -1,10 +1,21 @@
 package leap.data.beam;
 
+import leap.data.beam.transforms.join.OneToOneJoinTest;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.beam.sdk.testing.TestPipeline;
+import org.junit.Rule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestDataProvider {
+
+    private static final Logger logger = LoggerFactory.getLogger(OneToOneJoinTest.class);
+
+    @Rule
+    public TestPipeline p = TestPipeline.create();
+
     public static String AccountSchemaStr = "" +
                 "{" +
                 "\"type\": \"record\"," +
