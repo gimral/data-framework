@@ -21,7 +21,7 @@ public class AvroRecordUtil {
                 mappings) {
             recordBuilder.set(mapping.getTargetFieldName(),mapping.getMergeMappingSide() == MergeMappingSide.LEFT ?
                     leftRecord.get(mapping.getSourceFieldName()) :
-                    rightRecord.get(mapping.getTargetFieldName()));
+                    rightRecord.get(mapping.getSourceFieldName()));
         }
         return recordBuilder.build();
     }
@@ -36,11 +36,13 @@ public class AvroRecordUtil {
             } else if (rightSchema.getField(field.name()) != null) {
                 mappings.add(new MergeMapping(MergeMappingSide.RIGHT,field.name(),field.name()));
             } else if (leftPrefix != null && !leftPrefix.isEmpty()
-                    && leftSchema.getField(leftPrefix + field.name()) != null) {
-                mappings.add(new MergeMapping(MergeMappingSide.LEFT,field.name(),leftPrefix + field.name()));
+                    && field.name().startsWith(leftPrefix)
+                    && leftSchema.getField(field.name().substring(leftPrefix.length())) != null) {
+                mappings.add(new MergeMapping(MergeMappingSide.LEFT,field.name().substring(leftPrefix.length()),field.name()));
             } else if (rightPrefix != null && !rightPrefix.isEmpty()
-                    && leftSchema.getField(rightPrefix + field.name()) != null) {
-                mappings.add(new MergeMapping(MergeMappingSide.RIGHT,field.name(),rightPrefix + field.name()));
+                    && field.name().startsWith(rightPrefix)
+                    && rightSchema.getField(field.name().substring(rightPrefix.length())) != null) {
+                mappings.add(new MergeMapping(MergeMappingSide.RIGHT,field.name().substring(rightPrefix.length()),field.name()));
             }
         }
         return mappings;

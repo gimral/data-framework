@@ -122,7 +122,7 @@ public class UnNestJoinedGenericRecordsTest {
                 accounts.apply("Join with Transactions",
                         OneToOneJoin.inner(transactions))
                         .droppedElementsIgnored()
-                        .apply("UnNest", UnNestJoinedGenericRecords.of(PartialUnNestSchema)
+                        .apply("UnNest", UnNestJoinedGenericRecords.of(PrefixedUnNestSchema)
                         .withLeftPrefix("LEFT_").withRightPrefix("RIGHT_"));
 
         PAssert.that(joinedRecords).containsInAnyOrder(expectedResult);
