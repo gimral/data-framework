@@ -16,7 +16,6 @@ import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.math.BigInteger;
 import java.util.Optional;
 
 public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
@@ -26,10 +25,20 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         return new OneToOneJoin<>(rightCollection);
     }
 
+    public static <K, L, R> OneToOneJoin<K, L, R> left(PCollection<KV<K, R>> rightCollection) {
+        return new OneToOneJoin<K, L, R>(rightCollection).withJoinType(JoinType.Left);
+    }
+
+    public static <K, L, R> OneToOneJoin<K, L, R> right(PCollection<KV<K, R>> rightCollection) {
+        return new OneToOneJoin<K, L, R>(rightCollection).withJoinType(JoinType.Right);
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(OneToOneJoin.class);
     private transient PCollection<KV<K, R>> rightCollection;
     private final Duration leftStateExpireDuration;
     private final Duration rightStateExpireDuration;
+    private final JoinType joinType;
+
 
     final TupleTag<KV<K, KV<L, R>>> outputTag = new TupleTag<KV<K, KV<L, R>>>(){};
     final TupleTag<L> leftTupleTag = new TupleTag<L>(){};
@@ -39,20 +48,26 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         this.rightCollection = rightCollection;
         this.leftStateExpireDuration = Duration.standardSeconds(30);
         this.rightStateExpireDuration = Duration.standardSeconds(30);
+        this.joinType = JoinType.Inner;
     }
 
-    public OneToOneJoin(PCollection<KV<K, R>> rightCollection, Duration leftStateExpireDuration, Duration rightStateExpireDuration) {
+    public OneToOneJoin(PCollection<KV<K, R>> rightCollection, Duration leftStateExpireDuration, Duration rightStateExpireDuration, JoinType joinType) {
         this.rightCollection = rightCollection;
         this.leftStateExpireDuration = leftStateExpireDuration;
         this.rightStateExpireDuration = rightStateExpireDuration;
+        this.joinType = joinType;
     }
 
     public OneToOneJoin<K, L, R> withLeftStateExpireDuration(Duration leftStateExpireDuration) {
-        return new OneToOneJoin<>(this.rightCollection, leftStateExpireDuration, this.rightStateExpireDuration);
+        return new OneToOneJoin<>(this.rightCollection, leftStateExpireDuration, this.rightStateExpireDuration, joinType);
     }
 
     public OneToOneJoin<K, L, R> withRightStateExpireDuration(Duration rightStateExpireDuration) {
-        return new OneToOneJoin<>(this.rightCollection, this.leftStateExpireDuration, rightStateExpireDuration);
+        return new OneToOneJoin<>(this.rightCollection, this.leftStateExpireDuration, rightStateExpireDuration, joinType);
+    }
+
+    private OneToOneJoin<K, L, R> withJoinType(JoinType joinType) {
+        return new OneToOneJoin<>(this.rightCollection, this.leftStateExpireDuration, this.rightStateExpireDuration, joinType);
     }
 
     @Override
@@ -81,20 +96,25 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         PCollectionTuple joinedResult = coGroupByResult.apply("Join", ParDo.of(
                 new OneToOneJoinDoFn(TimeDomain.EVENT_TIME,
                         leftStateExpireDuration, rightStateExpireDuration,
-                        getValueCoder(leftCollection), getValueCoder(rightCollection)))
+                        (KvCoder<K, L>)leftCollection.getCoder(), (KvCoder<K, R>)rightCollection.getCoder()))
                 .withOutputTags(outputTag, TupleTagList.of(leftTupleTag).and(rightTupleTag)));
 
         return WithDroppedJoinElements.Result.of(joinedResult,outputTag,
                 leftTupleTag,rightTupleTag,KvCoder.of(getKeyCoder(leftCollection),
-                        KvCoder.of(getValueCoder(leftCollection), getValueCoder(rightCollection))));
+                        KvCoder.of(getValueCoder(leftCollection, joinType == JoinType.Right), getValueCoder(rightCollection, joinType == JoinType.Left))));
     }
 
-    private <V> Coder<V> getValueCoder(PCollection<KV<K, V>> pCollection) {
+    private <V> Coder<V> getValueCoder(PCollection<KV<K, V>> pCollection, boolean isNullable) {
         Coder<?> kvCoder = pCollection.getCoder();
+        if(kvCoder instanceof NullableCoder<?>){
+            kvCoder = ((NullableCoder<?>)kvCoder).getValueCoder();
+        }
         if (!(kvCoder instanceof KvCoder<?, ?>))
             throw new IllegalArgumentException("PCollection does not use a KVCoder");
         @SuppressWarnings("unchecked")
         KvCoder<K, V> coder = (KvCoder<K, V>) kvCoder;
+        if(isNullable)
+            return NullableCoder.of(coder.getValueCoder());
         return coder.getValueCoder();
     }
 
@@ -125,13 +145,13 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         private final TimerSpec rightStateExpiryTimerSpec;
 
         @StateId(LEFT_STATE)
-        private final StateSpec<ValueState<L>> leftState;
+        private final StateSpec<ValueState<KV<K,L>>> leftState;
 
         @StateId(JOINED_STATE)
         private final StateSpec<ValueState<Boolean>> joinedState;
 
         @StateId(RIGHT_STATE)
-        private final StateSpec<ValueState<R>> rightState;
+        private final StateSpec<ValueState<KV<K,R>>> rightState;
 
         private final Duration leftStateExpireDuration;
         private final Duration rightStateExpireDuration;
@@ -141,7 +161,7 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
 
         public OneToOneJoinDoFn(TimeDomain timeDomain,
                                  Duration leftStateExpireDuration, Duration rightStateExpireDuration,
-                                 Coder<L> leftCollectionCoder, Coder<R> rightCollectionCoder
+                                 KvCoder<K,L> leftCollectionCoder, KvCoder<K,R> rightCollectionCoder
         ) {
             leftStateExpiryTimerSpec = TimerSpecs.timer(timeDomain);
             rightStateExpiryTimerSpec = TimerSpecs.timer(timeDomain);
@@ -159,9 +179,10 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         public void processElement(ProcessContext c,
                                    @TimerId(LEFT_STATE_EXPIRING) Timer leftStateExpiryTimer,
                                    @TimerId(RIGHT_STATE_EXPIRING) Timer rightStateExpiryTimer,
-                                   @StateId(LEFT_STATE) ValueState<L> leftState,
+                                   @StateId(LEFT_STATE) ValueState<KV<K,L>> leftState,
                                    @StateId(JOINED_STATE) ValueState<Boolean> joinedState,
-                                   @StateId(RIGHT_STATE) ValueState<R> rightState) {
+                                   @StateId(RIGHT_STATE) ValueState<KV<K,R>> rightState) {
+            K key = c.element().getKey();
             Optional<L> leftValue = Optional.empty();
             Optional<R> rightValue = Optional.empty();
             Iterable<L> leftElements = c.element().getValue().getAll(leftTupleTag);
@@ -184,17 +205,17 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
             if(joined != null && joined)
                 return;
             if(!rightValue.isPresent()) {
-                rightValue = Optional.ofNullable(rightState.read());
+                rightValue = Optional.ofNullable(rightState.read()).map(KV::getValue);
                 if(!rightValue.isPresent()) {
-                    leftState.write(leftValue.get());
+                    leftState.write(KV.of(key,leftValue.get()));
                     leftStateExpiryTimer.offset(leftStateExpireDuration).setRelative();
                     return;
                 }
             }
             if(!leftValue.isPresent()) {
-                leftValue = Optional.ofNullable(leftState.read());
+                leftValue = Optional.ofNullable(leftState.read()).map(KV::getValue);
                 if(!leftValue.isPresent()){
-                    rightState.write(rightValue.get());
+                    rightState.write(KV.of(key,rightValue.get()));
                     rightStateExpiryTimer.offset(rightStateExpireDuration).setRelative();
                     return;
                 }
@@ -210,12 +231,17 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
 
         @OnTimer(LEFT_STATE_EXPIRING)
         public void onLeftCollectionStateExpire(OnTimerContext c,
-                                                @StateId(LEFT_STATE) ValueState<L> leftState,
+                                                @StateId(LEFT_STATE) ValueState<KV<K,L>> leftState,
                                                 @StateId(JOINED_STATE) ValueState<Boolean> joinedState) {
-            L leftValue = leftState.read();
-            if(leftValue != null) {
-                droppedLeftElements.inc();
-                c.output(leftTupleTag, leftValue);
+            Optional<KV<K, L>> leftValue = Optional.ofNullable(leftState.read());
+            if(leftValue.isPresent()) {
+                if(joinType == JoinType.Left){
+                    c.output(outputTag, KV.of(leftValue.get().getKey(),KV.of(leftValue.get().getValue(),null)));
+                }
+                else{
+                    droppedLeftElements.inc();
+                    c.output(leftTupleTag, leftValue.get().getValue());
+                }
                 logger.debug("Clearing Left State for {}", leftValue);
             }
             leftState.clear();
@@ -224,12 +250,17 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
 
         @OnTimer(RIGHT_STATE_EXPIRING)
         public void onRightStateExpire(OnTimerContext c,
-                                       @StateId(RIGHT_STATE) ValueState<R> rightState,
+                                       @StateId(RIGHT_STATE) ValueState<KV<K,R>> rightState,
                                        @StateId(JOINED_STATE) ValueState<Boolean> joinedState) {
-            R rightValue = rightState.read();
-            if(rightValue != null) {
-                droppedRightElements.inc();
-                c.output(rightTupleTag, rightValue);
+            Optional<KV<K, R>> rightValue = Optional.ofNullable(rightState.read());
+            if(rightValue.isPresent()) {
+                if(joinType == JoinType.Right){
+                    c.output(outputTag, KV.of(rightValue.get().getKey(),KV.of(null,rightValue.get().getValue())));
+                }
+                else{
+                    droppedRightElements.inc();
+                    c.output(rightTupleTag, rightValue.get().getValue());
+                }
                 logger.debug("Clearing Right State for {}", rightValue);
             }
             rightState.clear();

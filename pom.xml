@@ -7,7 +7,7 @@
     <groupId>leap-data</groupId>
     <artifactId>framework</artifactId>
     <packaging>pom</packaging>
-    <version>0.1.4</version>
+    <version>0.2.0</version>
     <modules>
         <module>framework-core</module>
         <module>framework-common-extensions</module>

@@ -57,6 +57,8 @@ public class TestDataProvider {
     public static Schema TransactionHeaderSchema = new Schema.Parser().parse(TransactionHeaderSchemaStr);
 
     public static GenericRecord getGenericAccount(long acid, long cust_id){
+        if(acid<0)
+            return null;
         return new GenericRecordBuilder(AccountSchema)
                 .set("acid", acid)
                 .set("cust_id", cust_id)
@@ -66,6 +68,8 @@ public class TestDataProvider {
     }
 
     public static GenericRecord getGenericHeader(long tran_id){
+        if(tran_id<0)
+            return null;
         return new GenericRecordBuilder(TransactionHeaderSchema)
                 .set("tran_id", tran_id)
                 .set("tran_name", "Tran Name" + tran_id)
@@ -73,6 +77,8 @@ public class TestDataProvider {
     }
 
     public static GenericRecord getGenericTransactionDetail(long acid,long tran_id){
+        if(tran_id<0 )
+            return null;
         return new GenericRecordBuilder(TransactionDetailSchema)
                 .set("tran_id", tran_id)
                 .set("acid", acid)

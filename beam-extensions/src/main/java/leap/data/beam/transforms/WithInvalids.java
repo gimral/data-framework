@@ -1,6 +1,7 @@
 package leap.data.beam.transforms;
 
 import com.google.auto.value.AutoValue;
+import leap.data.beam.transforms.dlq.DeadLetterWriteTransform;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -143,7 +144,7 @@ public class WithInvalids {
         /**
          *  Adds the invalid collection to a configured dead letter queue and returns just the output collection.
          */
-        public OutputT invalidsToDeadLetter(DeadLetterTransform<Void,InvalidElementT> deadLetterTransform) {
+        public OutputT invalidsToDeadLetter(DeadLetterWriteTransform<Void,InvalidElementT> deadLetterWriteTransform) {
             invalids()
                     .apply(ParDo.of(new DoFn<InvalidElementT, KV<Void,InvalidElementT>>() {
                         @ProcessElement
@@ -151,7 +152,7 @@ public class WithInvalids {
                             c.output(KV.of(null,element));
                         }
                     }))
-                    .apply(deadLetterTransform);
+                    .apply(deadLetterWriteTransform);
             return output();
         }
 

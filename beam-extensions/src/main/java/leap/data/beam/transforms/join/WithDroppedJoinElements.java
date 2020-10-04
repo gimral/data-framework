@@ -1,7 +1,7 @@
 package leap.data.beam.transforms.join;
 
 import com.google.auto.value.AutoValue;
-import leap.data.beam.transforms.DeadLetterTransform;
+import leap.data.beam.transforms.dlq.DeadLetterWriteTransform;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.transforms.*;
@@ -80,8 +80,8 @@ public class WithDroppedJoinElements {
         /**
          *  Adds the dropped elemet collection to a configured dead letter queue and returns just the output collection.
          */
-        public PCollection<KV<K, KV<L, R>>> droppedElementsToDeadLetter(DeadLetterTransform<Void,L> leftDroppedElementDeadLetterTransform,
-                                                                        DeadLetterTransform<Void,R> rightDroppedElementDeadLetterTransform) {
+        public PCollection<KV<K, KV<L, R>>> droppedElementsToDeadLetter(DeadLetterWriteTransform<Void,L> leftDroppedElementDeadLetterTransform,
+                                                                        DeadLetterWriteTransform<Void,R> rightDroppedElementDeadLetterTransform) {
             if(leftDroppedElementDeadLetterTransform != null)
                 leftDroppedElements()
                         .apply(WithKeys.of((SerializableFunction<L, Void>) input -> null))
@@ -93,11 +93,11 @@ public class WithDroppedJoinElements {
             return output();
         }
 
-        public PCollection<KV<K, KV<L, R>>> droppedLeftElementsToDeadLetter(DeadLetterTransform<Void,L> leftDroppedElementDeadLetterTransform) {
+        public PCollection<KV<K, KV<L, R>>> droppedLeftElementsToDeadLetter(DeadLetterWriteTransform<Void,L> leftDroppedElementDeadLetterTransform) {
             return droppedElementsToDeadLetter(leftDroppedElementDeadLetterTransform,null);
         }
 
-        public PCollection<KV<K, KV<L, R>>> droppedRightElementsToDeadLetter(DeadLetterTransform<Void,R> rightDroppedElementDeadLetterTransform) {
+        public PCollection<KV<K, KV<L, R>>> droppedRightElementsToDeadLetter(DeadLetterWriteTransform<Void,R> rightDroppedElementDeadLetterTransform) {
             return droppedElementsToDeadLetter(null, rightDroppedElementDeadLetterTransform);
         }
 

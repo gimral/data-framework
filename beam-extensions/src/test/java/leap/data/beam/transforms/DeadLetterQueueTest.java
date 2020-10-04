@@ -2,6 +2,8 @@ package leap.data.beam.transforms;
 
 import leap.data.beam.configuration.KafkaPipelineOptions;
 import leap.data.beam.io.ProducerFactoryFn;
+import leap.data.beam.transforms.dlq.DeadLetterHeader;
+import leap.data.beam.transforms.dlq.DeadLetterWriteTransform;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -48,9 +50,9 @@ public class DeadLetterQueueTest {
                     .advanceWatermarkToInfinity();
 
             p.apply("Input Stream",inputStream)
-                    .apply(DeadLetterTransform.<String,String>of(topic)
-                    .withHeaderFn((ProcessFunction<KV<String, String>, DeadLetterTransform.DeadLetterHeader>) input -> {
-                        DeadLetterTransform.DeadLetterHeader header = new DeadLetterTransform.DeadLetterHeader();
+                    .apply(DeadLetterWriteTransform.<String,String>to(topic)
+                    .withHeaderFn((ProcessFunction<KV<String, String>, DeadLetterHeader>) input -> {
+                        DeadLetterHeader header = new DeadLetterHeader();
                         header.setErrorReason("Test");
                         header.setErrorDescription("Test");
                         return header;
