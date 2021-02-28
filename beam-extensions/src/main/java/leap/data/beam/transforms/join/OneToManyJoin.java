@@ -64,11 +64,11 @@ public class OneToManyJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         this.joinType = joinType;
     }
 
-    public OneToManyJoin<K, L, R> withLeftStateExpireDuration(Duration leftStateExpireDuration) {
+    public <L> OneToManyJoin<K, L, R> withLeftStateExpireDuration(Duration leftStateExpireDuration) {
         return new OneToManyJoin<>(this.rightCollection, leftStateExpireDuration, this.rightStateExpireDuration, this.joinType);
     }
 
-    public OneToManyJoin<K, L, R> withRightStateExpireDuration(Duration rightStateExpireDuration) {
+    public <L> OneToManyJoin<K, L, R> withRightStateExpireDuration(Duration rightStateExpireDuration) {
         return new OneToManyJoin<>(this.rightCollection, this.leftStateExpireDuration, rightStateExpireDuration, this.joinType);
     }
 

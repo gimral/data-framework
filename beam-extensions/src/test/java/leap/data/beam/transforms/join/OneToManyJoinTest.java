@@ -1,6 +1,11 @@
 package leap.data.beam.transforms.join;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import leap.data.beam.TestDataProvider;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.beam.sdk.coders.AvroCoder;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -497,6 +502,43 @@ public class OneToManyJoinTest {
         p.run().waitUntilFinish();
     }
 
+    @Test
+    public void testExpiryJoin(){
+        Instant now = Instant.now();
+
+        TestStream<GenericRecord> accountsStream = TestStream.create(AvroCoder.of(TestDataProvider.AccountSchema))
+                .addElements(TestDataProvider.getGenericAccount(1L,1L))
+                .advanceWatermarkToInfinity();
+
+        TestStream<GenericRecord> transactionsStream = TestStream.create(AvroCoder.of(TestDataProvider.TransactionDetailSchema))
+                .addElements(TestDataProvider.getGenericTransactionDetail(1L, 1L))
+                .advanceWatermarkToInfinity();
+
+        PCollection<KV<Long,GenericRecord>> accounts = p.apply("Create Accounts", accountsStream)
+                .apply("Key Accounts",WithKeys.of((SerializableFunction<GenericRecord, Long>) input -> (long)input.get("acid")))
+                .setCoder(KvCoder.of(NullableCoder.of(VarLongCoder.of()),AvroCoder.of(TestDataProvider.AccountSchema)));
+
+        PCollection<KV<Long,GenericRecord>> transactions = p.apply("Create Transactions", transactionsStream)
+                .apply("Key Transactions",WithKeys.of((SerializableFunction<GenericRecord, Long>) input -> (long)input.get("acid")))
+                .setCoder(KvCoder.of(NullableCoder.of(VarLongCoder.of()),AvroCoder.of(TestDataProvider.TransactionDetailSchema)));
+
+
+        List<PCollection<GenericRecord>> droppedLeftCollection = new ArrayList<>();
+        List<PCollection<GenericRecord>> droppedRightCollection = new ArrayList<>();
+        PCollection<KV<Long,KV<GenericRecord,GenericRecord>>> joinedRecords =
+                accounts.apply("Join with Transactions",
+                        OneToManyJoin.inner(transactions)
+                                .withLeftStateExpireDuration(Duration.standardSeconds(60)))
+                        .droppedElementsTo(droppedLeftCollection,droppedRightCollection
+                        ).apply("ReKey", ParDo.of(getReKeyFn()));
+
+        List<KV<Long,KV<GenericRecord,GenericRecord>>> expectedResult = new ArrayList<>();
+        expectedResult.add(getJoinedRecord(1L,1L,1L));
+        PAssert.that(joinedRecords).containsInAnyOrder(expectedResult);
+
+        p.run().waitUntilFinish();
+    }
+
     public KV<Long, KV<GenericRecord, GenericRecord>> getJoinedRecord(long acid, long cust_id, long tran_id){
         return KV.of(acid,KV.of(TestDataProvider.getGenericAccount(acid,cust_id),
                 TestDataProvider.getGenericTransactionDetail(acid,tran_id)));
@@ -553,5 +595,7 @@ public class OneToManyJoinTest {
             }
         };
     }
+
+
 
 }

@@ -5,36 +5,35 @@ import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.state.*;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.join.*;
+import org.apache.beam.sdk.transforms.join.CoGbkResult;
+import org.apache.beam.sdk.transforms.join.CoGroupByKey;
+import org.apache.beam.sdk.transforms.join.KeyedPCollectionTuple;
 import org.apache.beam.sdk.transforms.windowing.*;
 import org.apache.beam.sdk.values.*;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
-public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
+public class OneToOneJoinOld<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         WithDroppedJoinElements.Result<K, L, R>> {
 
-    public static <K, L, R> OneToOneJoin<K, L, R> inner(PCollection<KV<K, R>> rightCollection) {
-        return new OneToOneJoin<>(rightCollection);
+    public static <K, L, R> OneToOneJoinOld<K, L, R> inner(PCollection<KV<K, R>> rightCollection) {
+        return new OneToOneJoinOld<>(rightCollection);
     }
 
-    public static <K, L, R> OneToOneJoin<K, L, R> left(PCollection<KV<K, R>> rightCollection) {
-        return new OneToOneJoin<K, L, R>(rightCollection).withJoinType(JoinType.Left);
+    public static <K, L, R> OneToOneJoinOld<K, L, R> left(PCollection<KV<K, R>> rightCollection) {
+        return new OneToOneJoinOld<K, L, R>(rightCollection).withJoinType(JoinType.Left);
     }
 
-    public static <K, L, R> OneToOneJoin<K, L, R> right(PCollection<KV<K, R>> rightCollection) {
-        return new OneToOneJoin<K, L, R>(rightCollection).withJoinType(JoinType.Right);
+    public static <K, L, R> OneToOneJoinOld<K, L, R> right(PCollection<KV<K, R>> rightCollection) {
+        return new OneToOneJoinOld<K, L, R>(rightCollection).withJoinType(JoinType.Right);
     }
 
-    private static final Logger logger = LoggerFactory.getLogger(OneToOneJoin.class);
+    private static final Logger logger = LoggerFactory.getLogger(OneToOneJoinOld.class);
     private transient PCollection<KV<K, R>> rightCollection;
     private final Duration leftStateExpireDuration;
     private final Duration rightStateExpireDuration;
@@ -45,30 +44,30 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
     final TupleTag<L> leftTupleTag = new TupleTag<L>(){};
     final TupleTag<R> rightTupleTag = new TupleTag<R>(){};
 
-    public OneToOneJoin(PCollection<KV<K, R>> rightCollection) {
+    public OneToOneJoinOld(PCollection<KV<K, R>> rightCollection) {
         this.rightCollection = rightCollection;
         this.leftStateExpireDuration = Duration.standardSeconds(30);
         this.rightStateExpireDuration = Duration.standardSeconds(30);
         this.joinType = JoinType.Inner;
     }
 
-    public OneToOneJoin(PCollection<KV<K, R>> rightCollection, Duration leftStateExpireDuration, Duration rightStateExpireDuration, JoinType joinType) {
+    public OneToOneJoinOld(PCollection<KV<K, R>> rightCollection, Duration leftStateExpireDuration, Duration rightStateExpireDuration, JoinType joinType) {
         this.rightCollection = rightCollection;
         this.leftStateExpireDuration = leftStateExpireDuration;
         this.rightStateExpireDuration = rightStateExpireDuration;
         this.joinType = joinType;
     }
 
-    public OneToOneJoin<K, L, R> withLeftStateExpireDuration(Duration leftStateExpireDuration) {
-        return new OneToOneJoin<>(this.rightCollection, leftStateExpireDuration, this.rightStateExpireDuration, joinType);
+    public OneToOneJoinOld<K, L, R> withLeftStateExpireDuration(Duration leftStateExpireDuration) {
+        return new OneToOneJoinOld<>(this.rightCollection, leftStateExpireDuration, this.rightStateExpireDuration, joinType);
     }
 
-    public OneToOneJoin<K, L, R> withRightStateExpireDuration(Duration rightStateExpireDuration) {
-        return new OneToOneJoin<>(this.rightCollection, this.leftStateExpireDuration, rightStateExpireDuration, joinType);
+    public OneToOneJoinOld<K, L, R> withRightStateExpireDuration(Duration rightStateExpireDuration) {
+        return new OneToOneJoinOld<>(this.rightCollection, this.leftStateExpireDuration, rightStateExpireDuration, joinType);
     }
 
-    private OneToOneJoin<K, L, R> withJoinType(JoinType joinType) {
-        return new OneToOneJoin<>(this.rightCollection, this.leftStateExpireDuration, this.rightStateExpireDuration, joinType);
+    private OneToOneJoinOld<K, L, R> withJoinType(JoinType joinType) {
+        return new OneToOneJoinOld<>(this.rightCollection, this.leftStateExpireDuration, this.rightStateExpireDuration, joinType);
     }
 
     @Override
@@ -89,27 +88,13 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
                     .withAllowedLateness(Duration.ZERO));
         }
 
-        List<Coder<?>> codersList = new ArrayList<>();
-        codersList.add(getValueCoder(leftCollection,false));
-        codersList.add(getValueCoder(rightCollection,false));
-        UnionCoder unionCoder = UnionCoder.of(codersList);
-        Coder<K> keyCoder = getKeyCoder(leftCollection);
-        KvCoder<K, RawUnionValue> unionKvCoder = KvCoder.of(keyCoder, unionCoder);
+        PCollection<KV<K, CoGbkResult>> coGroupByResult =
+                KeyedPCollectionTuple.of(leftTupleTag, leftCollection)
+                        .and(rightTupleTag, rightCollection)
+                        .apply("CoGroupBy", CoGroupByKey.create());
 
-        PCollectionList<KV<K, RawUnionValue>> unionTables = PCollectionList.empty(leftCollection.getPipeline());
-        unionTables = unionTables.and(makeUnionTable(0, leftCollection, unionKvCoder));
-        unionTables = unionTables.and(makeUnionTable(1, rightCollection, unionKvCoder));
-
-        PCollection<KV<K, RawUnionValue>> flattenedUnionTable =
-                unionTables.apply("Flatten", Flatten.pCollections());
-
-//        PCollection<KV<K, CoGbkResult>> coGroupByResult =
-//                KeyedPCollectionTuple.of(leftTupleTag, leftCollection)
-//                        .and(rightTupleTag, rightCollection)
-//                        .apply("CoGroupBy", CoGroupByKey.create());
-
-        PCollectionTuple joinedResult = flattenedUnionTable.apply("Join", ParDo.of(
-                new OneToOneJoinDoFn(TimeDomain.EVENT_TIME,
+        PCollectionTuple joinedResult = coGroupByResult.apply("Join", ParDo.of(
+                new OneToOneJoinOldDoFn(TimeDomain.EVENT_TIME,
                         leftStateExpireDuration, rightStateExpireDuration,
                         (KvCoder<K, L>)leftCollection.getCoder(), (KvCoder<K, R>)rightCollection.getCoder()))
                 .withOutputTags(outputTag, TupleTagList.of(leftTupleTag).and(rightTupleTag)));
@@ -142,42 +127,9 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         return coder.getKeyCoder();
     }
 
-    /**
-     * Returns a UnionTable for the given input PCollection, using the given union index and the given
-     * unionTableEncoder.
-     */
-    private <V> PCollection<KV<K, RawUnionValue>> makeUnionTable(
-            final int index,
-            PCollection<KV<K, V>> pCollection,
-            KvCoder<K, RawUnionValue> unionTableEncoder) {
-
-        return pCollection
-                .apply("MakeUnionTable" + index, ParDo.of(new ConstructUnionTableFn<>(index)))
-                .setCoder(unionTableEncoder);
-    }
-
-    /**
-     * A DoFn to construct a UnionTable (i.e., a {@code PCollection<KV<K, RawUnionValue>>} from a
-     * {@code PCollection<KV<K, V>>}.
-     */
-    private static class ConstructUnionTableFn<K, V> extends DoFn<KV<K, V>, KV<K, RawUnionValue>> {
-
-        private final int index;
-
-        public ConstructUnionTableFn(int index) {
-            this.index = index;
-        }
-
-        @ProcessElement
-        public void processElement(ProcessContext c) {
-            KV<K, ?> e = c.element();
-            c.output(KV.of(e.getKey(), new RawUnionValue(index, e.getValue())));
-        }
-    }
 
 
-
-    private class OneToOneJoinDoFn extends DoFn<KV<K, RawUnionValue>,
+    private class OneToOneJoinOldDoFn extends DoFn<KV<K, CoGbkResult>,
             KV<K, KV<L, R>>> {
 
         private static final String LEFT_STATE = "leftState";
@@ -207,9 +159,9 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
         private final Counter droppedRightElements;
         private final Counter droppedLeftElements;
 
-        public OneToOneJoinDoFn(TimeDomain timeDomain,
-                                 Duration leftStateExpireDuration, Duration rightStateExpireDuration,
-                                 KvCoder<K,L> leftCollectionCoder, KvCoder<K,R> rightCollectionCoder
+        public OneToOneJoinOldDoFn(TimeDomain timeDomain,
+                                Duration leftStateExpireDuration, Duration rightStateExpireDuration,
+                                KvCoder<K,L> leftCollectionCoder, KvCoder<K,R> rightCollectionCoder
         ) {
             leftStateExpiryTimerSpec = TimerSpecs.timer(timeDomain);
             rightStateExpiryTimerSpec = TimerSpecs.timer(timeDomain);
@@ -231,20 +183,24 @@ public class OneToOneJoin<K, L, R> extends PTransform<PCollection<KV<K, L>>,
                                    @StateId(JOINED_STATE) ValueState<Boolean> joinedState,
                                    @StateId(RIGHT_STATE) ValueState<KV<K,R>> rightState) {
             K key = c.element().getKey();
-            RawUnionValue value = c.element().getValue();
-
             Optional<L> leftValue = Optional.empty();
             Optional<R> rightValue = Optional.empty();
-            if(value.getValue() == null)
+            Iterable<L> leftElements = c.element().getValue().getAll(leftTupleTag);
+            for (L leftElemet :
+                    leftElements) {
+                leftValue = Optional.of(leftElemet);
+                //newLeftValue = true;
+                break;
+            }
+            Iterable<R> rightElements = c.element().getValue().getAll(rightTupleTag);
+            for (R rightElement :
+                    rightElements) {
+                rightValue = Optional.of(rightElement);
+                //newLeftValue = true;
+                break;
+            }
+            if(!leftValue.isPresent() && !rightValue.isPresent())
                 return;
-            if(value.getUnionTag() == 0){
-                //noinspection unchecked
-                leftValue = Optional.of((L)value.getValue());
-            }
-            else {
-                //noinspection unchecked
-                rightValue = Optional.of((R)value.getValue());
-            }
             Boolean joined = joinedState.read();
             if(joined != null && joined)
                 return;
