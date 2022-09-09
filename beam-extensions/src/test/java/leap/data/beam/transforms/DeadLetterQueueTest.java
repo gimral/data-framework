@@ -6,6 +6,7 @@ import leap.data.beam.transforms.dlq.DeadLetterHeader;
 import leap.data.beam.transforms.dlq.DeadLetterWriteTransform;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
+import org.apache.beam.sdk.io.kafka.KafkaIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.testing.TestStream;

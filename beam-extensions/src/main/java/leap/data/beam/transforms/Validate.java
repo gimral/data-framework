@@ -38,8 +38,8 @@ public class Validate<T> extends PTransform<PCollection<T>,
         this.exceptionsAsInvalid = exceptionsAsInvalid;
     }
 
-    public static <T, PredicateT extends ProcessFunction<T, Boolean>> Validate<T> by(
-            PredicateT predicate) {
+    public static <T> Validate<T> by(
+            ProcessFunction<T, Boolean> predicate) {
         return new Validate<>(predicate, false);
     }
 
@@ -55,7 +55,7 @@ public class Validate<T> extends PTransform<PCollection<T>,
 
     @Override
     public WithInvalids.Result<PCollection<T>, WithInvalids.InvalidElement<T>> expand(PCollection<T> input) {
-        ValidateFn validateFn = new ValidateFn(input.getTypeDescriptor());
+        ValidateFn validateFn = new ValidateFn();
         PCollectionTuple result =
                 input.apply(
                         "ValidateFn",
@@ -71,14 +71,12 @@ public class Validate<T> extends PTransform<PCollection<T>,
         final TupleTag<WithInvalids.InvalidElement<T>> invalidTag = new TupleTag<WithInvalids.InvalidElement<T>>() {
         };
 
-        private final TypeDescriptor<T> inputType;
-
-        public ValidateFn(TypeDescriptor<T> inputType){
-            this.inputType = inputType;
-        }
+        //public ValidateFn(TypeDescriptor<T> inputType){
+//            this.inputType = inputType;
+//        }
 
         @ProcessElement
-        public void processElement(@Element T element, MultiOutputReceiver r, ProcessContext c) throws Exception {
+        public void processElement(@Element T element, ProcessContext c) throws Exception {
             //TODO: Invalid Records Metric
             try {
                 if (predicate.apply(element)) {

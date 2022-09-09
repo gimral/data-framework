@@ -217,7 +217,7 @@ public class LeapKafkaIOTest {
     public void testKafkaIOWrite() throws Exception {
         // Simply read from kafka source and write to kafka sink. Then verify the records
         // are correctly published to mock kafka producer.
-        int numElements = 1000;
+        int numElements = 1;
         try (ProducerFactoryFn.MockProducerWrapper<GenericRecord> producerWrapper =
                      new ProducerFactoryFn.MockProducerWrapper<>()) {
             ProducerFactoryFn.ProducerSendCompletionThread<GenericRecord> completionThread =
